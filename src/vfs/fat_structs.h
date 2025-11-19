@@ -1,5 +1,5 @@
-#ifndef _FAT_STRUCTS_
-#define _VSF_STRUCTS_
+#ifndef _FAT_STRUCTS_H
+#define _FAT_STRUCTS_H
 
 #include <stdint.h>
 
@@ -93,20 +93,39 @@ typedef struct
     */
 
     // --- FAT32 Extended Boot Record (EBR) ---
-    uint32_t BPB_FATSz32;        //
+    uint32_t BPB_FATSz32;        // Size of a FAT in unit of sector. 
+    // The size of the FAT area is BPB_FATSz32 * BPB_NumFATs 
     uint16_t BPB_ExtFlags;       //
-    uint16_t BPB_FSVer;          //
-    uint32_t BPB_RootClus;       //
-    uint16_t BPB_FSInfo;         //
-    uint16_t BPB_BkBootSec;      //
-    uint8_t  BPB_Reserved[12];   //
-    uint8_t  BS_DrvNum;          //
-    uint8_t  BS_Reserved1;       //
-    uint8_t  BS_BootSig;         //
-    uint32_t BS_VolID;           //
-    uint8_t  BS_VolLab[11];      //  
-    uint8_t  BS_FilSysType[8];    
+    uint16_t BPB_FSVer;          // FAT32 version
+    uint32_t BPB_RootClus;       // First cluster number of root directory (Usually 2)
+    uint16_t BPB_FSInfo;         // Sector of FSInfo structure in offset from top of the FAT32 volume (Usually 1)
+    uint16_t BPB_BkBootSec;      // Sector of backup boot in offset from the top of the FAT (Usually 6)
+    uint8_t  BPB_Reserved[12];   // 
+    uint8_t  BS_DrvNum;          // Drive number used by disk BIOS of IBM PC.
+    uint8_t  BS_Reserved1;       // Reserved in DOS and Windows 9X, 
+    // used by Windows NT for volume integrity check. It should be set 0 when create the volume.
+    uint8_t  BS_BootSig;         // Extended boot signature (0x29). This is a signature byte indicates
+    // that the following three fields are present
+    uint32_t BS_VolID;           // Volume serial number
+    uint8_t  BS_VolLab[11];      // Volume label, matches the one recorded in the root dir  
+    uint8_t  BS_FilSysType[8];   // Used by old drivers to determine FAT type, always "FAT32    "
+    // From here we should have 512 byte padding since we had more records, useless to
+    // the aim of this project RN...
+
 } __attribute__((packed)) FAT_BootSector;
+
+typedef struct
+{
+    
+    uint32_t FSI_LeadSig;        // 0x41615252
+    uint8_t  FSI_Reserved1[480]; // 0
+    uint32_t FSI_StrucSig;       // 0x61417272
+    uint32_t FSI_Free_Count;     // Last known free cluster count
+    uint32_t FSI_Nxt_Free;       // A hint for the next free cluster
+    uint8_t  FSI_Reserved2[12];  // 0
+    uint32_t FSI_TrailSig;       // 0xAA550000
+
+} __attribute__((packed)) FAT_FSInfo;
 
 // This is basically a 32 byte FCB
 typedef struct
