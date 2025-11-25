@@ -22,6 +22,7 @@ typedef struct
 
 extern FAT_Fd global_fd_table[];
 
+// Needed vars for operations with sectors
 extern uint32_t FAT_StartSector;
 extern uint32_t FAT_Sectors;
 extern uint32_t FAT_RootDirStartSector;
