@@ -111,6 +111,8 @@ typedef struct
     uint8_t  BS_FilSysType[8];   // Used by old drivers to determine FAT type, always "FAT32    "
     // From here we should have 512 byte padding since we had more records, useless to
     // the aim of this project RN...
+    uint8_t  BS_Code[420]; 
+    uint16_t BS_Signature;
 
 } __attribute__((packed)) FAT_BootSector;
 

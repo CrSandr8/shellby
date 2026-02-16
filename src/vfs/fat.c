@@ -1,6 +1,9 @@
 #include "fat.h"
 #include "fat_internal.h"
 #include <stdio.h>
+#include <assert.h>
+
+_Static_assert(sizeof(FAT_BootSector) == 512);
 
 int fat_mount(const char *filename){
     globl_disk = fopen(filename, "rb+");

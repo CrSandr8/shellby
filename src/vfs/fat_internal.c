@@ -1,6 +1,8 @@
 #include "fat.h"
 #include "fat_internal.h"
 
+FAT_Fd global_fd_table[MAX_OPEN_FILES];
+
 bool globl_is_mounted = false;
 
 FILE *globl_disk = NULL;
