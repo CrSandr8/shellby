@@ -28,21 +28,20 @@ typedef struct
 {
 
     // --- Standard BPB ---
-    uint16_t BytsPerSec;     // Sector size in unit of byte
-    uint8_t  SecPerClus;     // Sector per allocation unit
+    uint16_t BytsPerSec;     // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
+    uint8_t  SecPerClus;     // Sector per allocation unit This value must be a power of 2 that is greater than 0. The legal values are 1, 2, 4, 8, 16, 32, 64, and 128
     uint8_t  NumFATS;        // How many FATS we have
 
     // --- Extended Boot Record (EBR) ---
-    uint32_t FATSz32;        // Size of a FAT in unit of sector. The size of the FAT area is BPB_FATSz32 * BPB_NumFATs 
+    uint32_t FATSz;        // Size of a FAT in unit of sector.
     uint32_t RootClus;       // First cluster number of root directory (Usually 2)
-    uint16_t FSInfo_offset;         // Sector of FSInfo structure in offset from top of the FAT32 volume (Usually 1)
+    uint16_t FSInfo_offset;  // Sector of FSInfo structure in offset from top of the FAT volume (Usually 1)
     uint16_t Signature;
 
 } __attribute__((packed)) FAT_BootSector;
 
 typedef struct
 {
-    
     uint32_t FSI_LeadSig;        // 0x41615252
     uint8_t  FSI_Reserved1[480]; // 0
     uint32_t FSI_StrucSig;       // 0x61417272
@@ -50,12 +49,13 @@ typedef struct
     uint32_t FSI_Nxt_Free;       // A hint for the next free cluster
     uint8_t  FSI_Reserved2[12];  // 0
     uint32_t FSI_TrailSig;       // 0xAA550000
-
+    
 } __attribute__((packed)) FAT_FSInfo;  // 512 bytes
 
 typedef struct
 {
-    uint8_t name[25];     // name always has 25 chars
+    uint8_t name[21];     // name always has 21 chars
+    uint32_t first_cluster; // first cluster index
     uint8_t attr;    // directory attributes
     uint8_t is_res;    // is directory reserved?
     uint8_t is_dir;    // is this a directory?
