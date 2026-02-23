@@ -72,5 +72,19 @@ typedef struct
 
 } __attribute__((packed)) FAT_Fd;  //64 bytes
 
+typedef struct
+{
+    FAT_BootSector bs;
+    FAT_Fd fdTable[];
+
+} FAT_GlobalInfo;
+
+typedef struct
+{
+    FILE * name;
+    uint8_t is_mounted;
+
+} Disk_Fd;
+
 
 #endif
