@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define MAX_OPEN_FILES 12
-
 // File operations
 
 int fat_open(const char *path, int mode);

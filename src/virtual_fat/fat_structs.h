@@ -22,6 +22,8 @@
 #define FAT_BADCLUSTER 0x0FFFFFF7
 #define FAT_EOC 0x0FFFFFF8
 
+#define MAX_OPEN_FILES 12
+
 // BOOT SECTOR
 
 typedef struct
@@ -75,16 +77,10 @@ typedef struct
 typedef struct
 {
     FAT_BootSector bs;
-    FAT_Fd fdTable[];
+    FAT_FSInfo fsinfo;
+    FAT_Fd open_files[MAX_OPEN_FILES];
 
-} FAT_GlobalInfo;
-
-typedef struct
-{
-    FILE * name;
-    uint8_t is_mounted;
-
-} Disk_Fd;
+}  FAT_GlobalStateInfo;
 
 
 #endif
