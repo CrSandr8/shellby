@@ -18,6 +18,8 @@ int fat_rm(const char *path);
 
 // Mount && Unmount
 
+int fat_format(const char * filename, int size_mb);
+
 int fat_mount(const char *filename);
 void fat_unmount();
 

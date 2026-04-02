@@ -11,7 +11,7 @@
 
 int main(int argc, char **argv) {
     // sezione di startup
-    //esecuzione shell
+    // esecuzione shell
     //do_shell();
 
 }

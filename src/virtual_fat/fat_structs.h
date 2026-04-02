@@ -7,6 +7,8 @@
 #define SECTOR_SIZE 512
 #define DIR_ENTRY_SIZE 32
 
+#define BS_SIGNATURE 0xAC18
+
 // File attributes, a bitmask
 #define ATTR_READ_ONLY  0x01
 #define ATTR_HIDDEN     0x02
@@ -38,9 +40,10 @@ typedef struct
     uint32_t FATSz;        // Size of a FAT in unit of sector.
     uint32_t RootClus;       // First cluster number of root directory (Usually 2)
     uint16_t FSInfo_offset;  // Sector of FSInfo structure in offset from top of the FAT volume (Usually 1)
+    uint8_t padding[496];
     uint16_t Signature;
 
-} __attribute__((packed)) FAT_BootSector;
+} __attribute__((packed)) FAT_BootSector; // 512 bytes 
 
 typedef struct
 {

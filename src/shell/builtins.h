@@ -1,7 +1,7 @@
 #ifndef _BUILTIN_H
 #define _BUILTIN_H
 
-int format();
+int format(const char * name, int size);
 int mkdir();
 int cd();
 int touch();
