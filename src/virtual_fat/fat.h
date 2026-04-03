@@ -1,7 +1,14 @@
 #ifndef _FAT_H
 #define _FAT_H
 
-#include <stdint.h>
+#include "fat_structs.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
 
 // File operations
 
@@ -18,13 +25,11 @@ int fat_rm(const char *path);
 
 // Mount && Unmount
 
-int fat_format(const char * filename, int size_mb);
+int fat_init(const char *filename);
 
 int fat_mount(const char *filename);
 void fat_unmount();
 
 // "Cluster Routines"
-
-
 
 #endif
