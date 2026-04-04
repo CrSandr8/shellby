@@ -40,13 +40,13 @@ int fat_mount(const char *filename)
     printf("Signature OK!\n");
 
     uint32_t fsi_offset = disk.bs->BytsPerSec * disk.bs->FSInfo_offset; //Bytes
-    disk.fsinfo = (FAT_FSInfo *) (disk.bs + fsi_offset);
+    disk.fsinfo = (FAT_FSInfo *) (disk.disk_base + fsi_offset);
 
     uint32_t fat_offset = disk.bs->BytsPerSec * disk.bs->RsvdSecCnt;
-    disk.fat_table = (uint32_t *) (disk.bs + fat_offset);
+    disk.fat_table = (uint32_t *) (disk.disk_base + fat_offset);
 
     uint32_t data_offset = (disk.bs->RsvdSecCnt + (disk.bs->NumFATS * disk.bs->FATSz)) * disk.bs->BytsPerSec;
-    disk.data_region = (uint32_t *) (disk.bs + data_offset);
+    disk.data_region = (uint32_t *) (disk.disk_base + data_offset);
 
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         disk.open_files[i].is_used = 0;
