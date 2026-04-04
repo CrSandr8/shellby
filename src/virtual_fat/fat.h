@@ -25,10 +25,13 @@ int fat_rm(const char *path);
 
 // Mount && Unmount
 
-int fat_init(const char *filename);
-
 int fat_mount(const char *filename);
-void fat_unmount();
+void fat_unmount(const char *filename);
+
+// Format && Init
+
+int fat_format(const char *filename);
+int fat_init(const char *filename);
 
 // "Cluster Routines"
 

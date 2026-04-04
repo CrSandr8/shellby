@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+// Error codes for function return values
+#define FAT_SUCCESS           0
+#define FAT_ERR_GENERIC      -1   // Generic error code 
+#define FAT_ERR_BAD_SIG      -2   // Non mountable file
+
 // Dimensional values used
 #define SECTOR_SIZE 512
 
@@ -89,8 +94,8 @@ typedef struct
     uint8_t *data_region;
     
     FAT_Fd open_files[MAX_OPEN_FILES];
-    
-}  __attribute__((packed)) FAT_Disk;
+
+} FAT_Disk;
 
 // uint32_t first_data_sector = fs_state.bs->RsvdSecCnt + (fs_state.bs->NumFATS * fs_state.bs->FATSz);
 
