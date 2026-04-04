@@ -1,6 +1,6 @@
 #include "fat.h"
 
-FAT_Disk disk;
+extern FAT_Disk disk;
 
 int fat_format(const char *filename)
 {
@@ -46,7 +46,7 @@ int fat_mount(const char *filename)
     disk.fat_table = (uint32_t *) (disk.disk_base + fat_offset);
 
     uint32_t data_offset = (disk.bs->RsvdSecCnt + (disk.bs->NumFATS * disk.bs->FATSz)) * disk.bs->BytsPerSec;
-    disk.data_region = (uint32_t *) (disk.disk_base + data_offset);
+    disk.data_region = (uint8_t *) (disk.disk_base + data_offset);
 
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         disk.open_files[i].is_used = 0;
@@ -90,29 +90,46 @@ int fat_init(const char *filename)
 }
 int fat_open(const char *path, int mode)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_open chiamato con path '%s' e mode %d\n", path, mode);
+
+    return 3;
 }
 int fat_close(int fd)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_close chiamato per chiudere l'fd %d\n", fd);
+    return FAT_SUCCESS;
 }
 int fat_read(int fd, void *buf, int size)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_read chiamato per l'fd %d, richiedendo %d byte\n", fd, size);
+    
+    // Inseriamo una finta stringa di testo nel buffer giusto per testare il comando 'cat'
+    if (buf != NULL && size > 0) {
+        strncpy((char*)buf, "Contenuto fittizio del file lettto con successo!\n", size);
+    }
+    
+    // Fingiamo di aver letto esattamente il numero di byte richiesti (o almeno un po')
+    return size;
 }
 int fat_write(int fd, const void *buf, int size)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_write chiamato per l'fd %d. Richiesta scrittura di %d byte\n", fd, size);
+    // Fingiamo di aver scritto tutti i byte con successo
+    return size;
 }
 int fat_lseek(int fd, int offset, int whence)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_lseek chiamato per l'fd %d, offset %d, whence %d\n", fd, offset, whence);
+    // Ritorniamo il nuovo offset fittizio
+    return offset;
 }
 int fat_mkdir(const char *path)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_mkdir chiamato per creare la directory '%s'\n", path);
+    return FAT_SUCCESS;
 }
 int fat_rm(const char *path)
 {
-    // TODO
+    printf("[DEBUG] MOCK: fat_rm chiamato per eliminare il file/dir '%s'\n", path);
+    return FAT_SUCCESS;
 }
