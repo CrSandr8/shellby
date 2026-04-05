@@ -2,10 +2,36 @@
 
 extern FAT_Disk disk;
 
-int fat_format(const char *filename)
+int find_DirectoryEntry(const char *path, FAT_DirectoryEntry *output){
+
+}
+
+int chain_append(){}
+
+int chain_rm(uint32_t first_cluster){
+    uint32_t current = first_cluster;
+
+    if (current == FAT_FREE) return FAT_SUCCESS;
+
+    while (1) {
+        uint32_t next = disk.fat_table[current]; // 
+        disk.fat_table[current] = FAT_FREE;      // 
+        
+        if (next == FAT_EOC || next == FAT_FREE) {
+            break; //
+        }
+        
+        current = next; // 
+    }
+
+    return FAT_SUCCESS;
+}
+
+int fat_format(const char *filename, int size)
 {
 
 }
+
 int fat_mount(const char *filename)
 {
     printf("Starting mount operations...\n");
@@ -39,7 +65,9 @@ int fat_mount(const char *filename)
 
     printf("Signature OK!\n");
 
-    uint32_t fsi_offset = disk.bs->BytsPerSec * disk.bs->FSInfo_offset; //Bytes
+    // NOTE: the following offsets are in bytes
+
+    uint32_t fsi_offset = disk.bs->BytsPerSec * disk.bs->FSInfo_offset;
     disk.fsinfo = (FAT_FSInfo *) (disk.disk_base + fsi_offset);
 
     uint32_t fat_offset = disk.bs->BytsPerSec * disk.bs->RsvdSecCnt;
@@ -59,7 +87,7 @@ int fat_mount(const char *filename)
 
     return FAT_SUCCESS;
 }
-void fat_unmount(FAT_Disk disk)
+void fat_unmount(FAT_Disk disk) // TODO capire se qui ci deve essere un input o no
 {
 
     printf("Starting unmount process...\n");
@@ -90,13 +118,48 @@ int fat_init(const char *filename)
 }
 int fat_open(const char *path, int mode)
 {
-    printf("[DEBUG] MOCK: fat_open chiamato con path '%s' e mode %d\n", path, mode);
+    //printf("[DEBUG] MOCK: fat_open chiamato con path '%s' e mode %d\n", path, mode);
 
-    return 3;
+    //return 3;
+
+    FAT_DirectoryEntry found;
+
+    if (find_DirectoryEntry(path, &found) == FAT_ERR_GENERIC){
+
+        //TODO aggiungere controllo sulla modalità di apertura del file
+
+        perror("Cannot open directory: file not found");
+        return FAT_ERR_GENERIC;
+    }
+
+    for(int i = 0; i < MAX_OPEN_FILES; i++){
+        if (disk.open_files[i].is_used == 0){
+            disk.open_files[i].is_used = 1;
+            disk.open_files[i].cached_entry = found;
+            disk.open_files[i].current_offset = 0;
+            return i;
+        }
+    }
+
+    perror("Error: too many open files!");
+    return FAT_ERR_GENERIC;
 }
 int fat_close(int fd)
 {
-    printf("[DEBUG] MOCK: fat_close chiamato per chiudere l'fd %d\n", fd);
+    //printf("[DEBUG] MOCK: fat_close chiamato per chiudere l'fd %d\n", fd);
+    //return FAT_SUCCESS;
+
+    if (fd > MAX_OPEN_FILES || fd <= 0){
+        perror("Error: file not open");
+        return FAT_ERR_GENERIC;
+    }
+
+    disk.open_files[fd].is_used = 0;    
+
+    disk.open_files[fd].current_offset = 0;
+
+    memset(&disk.open_files[fd].cached_entry, 0, sizeof(FAT_DirectoryEntry)); // Clearing cached entry
+    
     return FAT_SUCCESS;
 }
 int fat_read(int fd, void *buf, int size)
@@ -113,9 +176,10 @@ int fat_read(int fd, void *buf, int size)
 }
 int fat_write(int fd, const void *buf, int size)
 {
-    printf("[DEBUG] MOCK: fat_write chiamato per l'fd %d. Richiesta scrittura di %d byte\n", fd, size);
+    //printf("[DEBUG] MOCK: fat_write chiamato per l'fd %d. Richiesta scrittura di %d byte\n", fd, size);
     // Fingiamo di aver scritto tutti i byte con successo
-    return size;
+    //return size;
+    
 }
 int fat_lseek(int fd, int offset, int whence)
 {
@@ -130,6 +194,19 @@ int fat_mkdir(const char *path)
 }
 int fat_rm(const char *path)
 {
-    printf("[DEBUG] MOCK: fat_rm chiamato per eliminare il file/dir '%s'\n", path);
-    return FAT_SUCCESS;
+    //printf("[DEBUG] MOCK: fat_rm chiamato per eliminare il file/dir '%s'\n", path);
+    //return FAT_SUCCESS;
+    FAT_DirectoryEntry out;
+
+    if (find_DirectoryEntry(path, &out) == FAT_ERR_GENERIC){
+        perror("Error: file or directory with input path not found");
+        return FAT_ERR_GENERIC;
+    }
+
+    if (chain_rm(out.first_cluster) == FAT_ERR_GENERIC){
+        perror("Error while trying to remove related clusters");
+        return FAT_ERR_GENERIC;
+    }
+
+
 }

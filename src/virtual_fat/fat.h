@@ -30,9 +30,11 @@ void fat_unmount(const char *filename);
 
 // Format && Init
 
-int fat_format(const char *filename);
+int fat_format(const char *filename, int size);
 int fat_init(const char *filename);
 
-// "Cluster Routines"
+// "Routine Operations"
+
+int find_DirectoryEntry(const char *filename, FAT_DirectoryEntry *output);
 
 #endif
