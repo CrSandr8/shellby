@@ -3,30 +3,29 @@
 extern FAT_Disk disk;
 
 int find_DirectoryEntry(const char *path, FAT_FCB *output)
-{
-    
-}
+{}
 
-int chain_append() {}
+int chain_append()
+{}
 
 int chain_rm(uint32_t first_cluster)
 {
     uint32_t current = first_cluster;
 
-    if (current == FAT_FREE)
+    if (current == FAT_FREE) //If cluster is already labeled as free
         return FAT_SUCCESS;
 
     while (1)
     {
-        uint32_t next = disk.fat_table[current]; //
-        disk.fat_table[current] = FAT_FREE;      //
+        uint32_t next = disk.fat_table[current]; //We save where is the next cluster of the chain
+        disk.fat_table[current] = FAT_FREE;      //And free the current one
 
-        if (next == FAT_EOC || next == FAT_FREE)
+        if (next == FAT_EOC || next == FAT_FREE) //Check out the next one, it might be the the end of the chain
         {
             break; //
         }
 
-        current = next; //
+        current = next; //If that is not the case we go on with the cycle
     }
 
     return FAT_SUCCESS;
@@ -34,6 +33,75 @@ int chain_rm(uint32_t first_cluster)
 
 int fat_format(const char *filename, int size)
 {
+    int fd;
+
+    //Handling file creation
+    if((fd = open(filename, O_CREAT | O_RDWR, 0666)) == -1){
+        perror("Error while opening");
+        return FAT_ERR_GENERIC;
+    }
+
+    //Resizing the created file
+    if ((ftruncate(fd, size)) == -1){
+        perror("Error while truncating file");
+        return FAT_ERR_GENERIC;
+    }
+
+    //Mapping
+    uint8_t *base = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    if (base == MAP_FAILED){
+        perror("Error while mmapping file ");
+        return FAT_ERR_GENERIC;
+    }
+
+    //Setting up default values for structs and initializing the FS
+
+    disk.bs = (FAT_BootSector *)(base); //The boot sector is at the top of the disk
+
+    //Here we want to make sure all values are dynamic and there are no real addresses but offsets
+    disk.bs->BytsPerSec = SECTOR_SIZE;
+    disk.bs->SecPerClus = SECTOR_PER_CLUS;
+    disk.bs->RsvdSecCnt = SECTOR_RSVD_CNT;
+    disk.bs->NumFATS = NUM_FATS;
+
+    //Operations needed to calculate the actual FAT size
+    int total_clusters = (size/SECTOR_SIZE)/SECTOR_PER_CLUS;
+    int fat_bytes = total_clusters*4;
+    int fat_size = fat_bytes/SECTOR_SIZE;
+
+    disk.bs->FATSz = fat_size;
+
+    disk.bs->RootClus = ROOT_CLUS; //This offset is in clusters
+
+    disk.bs->FSInfo_offset = FSINFO_OFFSET; //This is in sectors
+
+    disk.bs->Signature = BS_SIGNATURE; //This is personalized
+
+    disk.fsinfo = (FAT_FSInfo *)(base+(FSINFO_OFFSET*SECTOR_SIZE)); //Again offset in sectors
+
+    disk.fsinfo->FSI_Nxt_Free = ROOT_CLUS + SECTOR_PER_CLUS; //The first free cluster will be the one next to the root directory
+
+    //Operations needed to calculate the data region size
+    int total_sectors = size / 512;
+    int available_sectors = total_sectors - ROOT_CLUS; //TODO
+
+    int data_clusters;
+
+    disk.fsinfo->FSI_Free_Count = data_clusters;
+
+    //Locating FAT table with its offsets and initializing it
+    disk.fat_table = (uint32_t *)(base+(FAT_OFFSET*SECTOR_SIZE));
+    memset(disk.fat_table, 0, disk.bs->FATSz*disk.bs->NumFATS*disk.bs->BytsPerSec);
+
+    //Locating data region with its offsets
+    disk.data_region = (uint8_t *)(base+(DATA_OFFSET*SECTOR_SIZE));
+
+
+
+    //Hopefully somehow we get here
+    return FAT_SUCCESS;
+
 }
 
 int fat_mount(const char *filename)
@@ -46,7 +114,7 @@ int fat_mount(const char *filename)
         return FAT_ERR_GENERIC;
     }
 
-    disk.disk_size = DISK_SIZE;
+    disk.disk_size = DISK_SIZE; //TODO checkout if this has to be corrected
 
     disk.disk_base = mmap(NULL, disk.disk_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
@@ -74,6 +142,7 @@ int fat_mount(const char *filename)
 
     // NOTE: the following offsets are in bytes
 
+    //TODO might want to rewrite this operations based on the ones of the fat_format
     uint32_t fsi_offset = disk.bs->BytsPerSec * disk.bs->FSInfo_offset;
     disk.fsinfo = (FAT_FSInfo *)(disk.disk_base + fsi_offset);
 
@@ -95,7 +164,9 @@ int fat_mount(const char *filename)
 
     return FAT_SUCCESS;
 }
-void fat_unmount(FAT_Disk disk) // TODO capire se qui ci deve essere un input o no
+
+
+void fat_unmount(void) // TODO capire se qui ci deve essere un input o no
 {
 
     printf("Starting unmount process...\n");
@@ -119,6 +190,8 @@ void fat_unmount(FAT_Disk disk) // TODO capire se qui ci deve essere un input o 
 
     return FAT_SUCCESS;
 }
+
+
 int fat_init(const char *filename)
 {
     if (fat_mount(filename) == FAT_SUCCESS)
@@ -126,6 +199,8 @@ int fat_init(const char *filename)
 
     // might want to format or do some
 }
+
+
 int fat_open(const char *path, int mode)
 {
     // printf("[DEBUG] MOCK: fat_open chiamato con path '%s' e mode %d\n", path, mode);
@@ -138,11 +213,13 @@ int fat_open(const char *path, int mode)
     {
 
         // TODO aggiungere controllo sulla modalità di apertura del file
+        //Forse no?^
 
         perror("Cannot open directory: file not found");
         return FAT_ERR_GENERIC;
     }
 
+    //Looking for a free slot in the open file list
     for (int i = 0; i < MAX_OPEN_FILES; i++)
     {
         if (disk.open_files[i].is_used == 0)
@@ -157,6 +234,8 @@ int fat_open(const char *path, int mode)
     perror("Error: too many open files!");
     return FAT_ERR_GENERIC;
 }
+
+
 int fat_close(int fd)
 {
     // printf("[DEBUG] MOCK: fat_close chiamato per chiudere l'fd %d\n", fd);
@@ -170,7 +249,7 @@ int fat_close(int fd)
 
     disk.open_files[fd].is_used = 0;
 
-    disk.open_files[fd].current_offset = 0;
+    disk.open_files[fd].current_offset = 0; //Resetting the file descriptor
 
     memset(&disk.open_files[fd].cached_entry, 0, sizeof(FAT_FCB)); // Clearing cached entry
 
@@ -189,23 +268,31 @@ int fat_read(int fd, void *buf, int size)
     // Fingiamo di aver letto esattamente il numero di byte richiesti (o almeno un po')
     return size;
 }
+
+
 int fat_write(int fd, const void *buf, int size)
 {
-    // printf("[DEBUG] MOCK: fat_write chiamato per l'fd %d. Richiesta scrittura di %d byte\n", fd, size);
-    //  Fingiamo di aver scritto tutti i byte con successo
-    // return size;
+    printf("[DEBUG] MOCK: fat_write chiamato per l'fd %d. Richiesta scrittura di %d byte\n", fd, size);
+    //Fingiamo di aver scritto tutti i byte con successo
+    return size;
 }
+
+
 int fat_lseek(int fd, int offset, int whence)
 {
     printf("[DEBUG] MOCK: fat_lseek chiamato per l'fd %d, offset %d, whence %d\n", fd, offset, whence);
     // Ritorniamo il nuovo offset fittizio
     return offset;
 }
+
+
 int fat_mkdir(const char *path)
 {
     printf("[DEBUG] MOCK: fat_mkdir chiamato per creare la directory '%s'\n", path);
     return FAT_SUCCESS;
 }
+
+
 int fat_rm(const char *path)
 {
     // printf("[DEBUG] MOCK: fat_rm chiamato per eliminare il file/dir '%s'\n", path);
@@ -223,4 +310,9 @@ int fat_rm(const char *path)
         perror("Error while trying to remove related clusters");
         return FAT_ERR_GENERIC;
     }
+
+    //TODO
+
+
+    return FAT_SUCCESS;
 }

@@ -9,7 +9,21 @@
 #define FAT_ERR_BAD_SIG -2 // Non mountable file
 
 // Dimensional values used
-#define SECTOR_SIZE 512
+#define SECTOR_SIZE 512 //bytes
+
+#define SECTOR_PER_CLUS 4 
+
+#define CLUSTER_SIZE SECTOR_SIZE*SECTOR_PER_CLUS
+
+#define SECTOR_RSVD_CNT 2
+#define NUM_FATS 1
+
+// Offset calculated in sectors
+#define FSINFO_OFFSET 1
+#define FAT_OFFSET 2 
+#define DATA_OFFSET FAT_OFFSET+NUM_FATS-1
+
+#define ROOT_CLUS 2 //offset in clusters here
 
 // Personalized signature
 #define BS_SIGNATURE 0xAC18

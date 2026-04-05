@@ -26,7 +26,7 @@ int fat_rm(const char *path);
 // Mount && Unmount
 
 int fat_mount(const char *filename);
-void fat_unmount(const char *filename);
+void fat_unmount(void);
 
 // Format && Init
 
@@ -35,6 +35,6 @@ int fat_init(const char *filename);
 
 // "Routine Operations"
 
-int find_DirectoryEntry(const char *filename, FAT_DirectoryEntry *output);
+int find_DirectoryEntry(const char *filename, FAT_FCB *output);
 
 #endif
