@@ -37,4 +37,7 @@ int fat_init(const char *filename);
 
 int find_DirectoryEntry(const char *filename, FAT_FCB *output);
 
+int chain_append();
+int chain_rm(uint32_t first_cluster);
+
 #endif

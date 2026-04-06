@@ -74,7 +74,7 @@ int append(const char *filename, const char *text)
 
 int shell_close(const char *filename)
 {
-    fat_unmount(filename);
+    fat_unmount();
 
     return 1;
 }

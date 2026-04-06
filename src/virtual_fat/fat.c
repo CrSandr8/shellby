@@ -63,7 +63,6 @@ int fat_format(const char *filename, int size)
     disk.bs->BytsPerSec = SECTOR_SIZE;
     disk.bs->SecPerClus = SECTOR_PER_CLUS;
     disk.bs->RsvdSecCnt = SECTOR_RSVD_CNT;
-    disk.bs->NumFATS = NUM_FATS;
 
     //Operations needed to calculate the actual FAT size
     int total_clusters = (size/SECTOR_SIZE)/SECTOR_PER_CLUS;
@@ -92,7 +91,7 @@ int fat_format(const char *filename, int size)
 
     //Locating FAT table with its offsets and initializing it
     disk.fat_table = (uint32_t *)(base+(FAT_OFFSET*SECTOR_SIZE));
-    memset(disk.fat_table, 0, disk.bs->FATSz*disk.bs->NumFATS*disk.bs->BytsPerSec);
+    memset(disk.fat_table, 0, disk.bs->FATSz*disk.bs->BytsPerSec);
 
     //Locating data region with its offsets
     disk.data_region = (uint8_t *)(base+(DATA_OFFSET*SECTOR_SIZE));
@@ -149,7 +148,7 @@ int fat_mount(const char *filename)
     uint32_t fat_offset = disk.bs->BytsPerSec * disk.bs->RsvdSecCnt;
     disk.fat_table = (uint32_t *)(disk.disk_base + fat_offset);
 
-    uint32_t data_offset = (disk.bs->RsvdSecCnt + (disk.bs->NumFATS * disk.bs->FATSz)) * disk.bs->BytsPerSec;
+    uint32_t data_offset = (disk.bs->RsvdSecCnt + disk.bs->FATSz) * disk.bs->BytsPerSec;
     disk.data_region = (uint8_t *)(disk.disk_base + data_offset);
 
     for (int i = 0; i < MAX_OPEN_FILES; i++)

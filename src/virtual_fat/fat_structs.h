@@ -48,12 +48,11 @@ typedef struct
 
     uint16_t BytsPerSec;    // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
     uint8_t SecPerClus;     // Sector per allocation unit This value must be a power of 2 that is greater than 0. The legal values are 1, 2, 4, 8, 16, 32, 64, and 128
-    uint16_t RsvdSecCnt;    // TODO explain
-    uint8_t NumFATS;        // How many FATS we have
-    uint32_t FATSz;         // Size of a FAT in unit of sector.
+    uint16_t RsvdSecCnt;    // Basically the sectors before the data region
+    uint32_t FATSz;         // Size of the FAT in unit of sector.
     uint32_t RootClus;      // First cluster number of root directory (Usually 2)
     uint16_t FSInfo_offset; // Sector of FSInfo structure in offset from top of the FAT volume (Usually 1)
-    uint8_t padding[494];
+    uint8_t padding[495];
     uint16_t Signature;
 
 } __attribute__((packed)) FAT_BootSector; // 512 bytes
