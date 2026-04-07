@@ -25,6 +25,8 @@ void get_cmd_line(char* argv[MAX_TOKENS]) {
     argv[argc] = NULL;
 }
 
+// Print file rows as raw text
+
 int cat(const char *filename)
 {
     int fd = fat_open(filename, 0);
@@ -47,6 +49,8 @@ int cat(const char *filename)
     return 0;
 
 }
+
+// Append the inserted text to the selected file 
 
 int append(const char *filename, const char *text)
 {
@@ -71,6 +75,8 @@ int append(const char *filename, const char *text)
 
     return 0;
 }
+
+// Safely close everything
 
 int shell_close(const char *filename)
 {
