@@ -335,16 +335,20 @@ uint32_t find_free_cluster(){
 
 int chain_append(uint32_t a, uint32_t b)
 {
-    if (disk.fat_table[a] == FAT_EOC){
-        disk.fat_table[a] = b;
-        disk.fat_table[b] = FAT_EOC;
+    while(1){
+        uint32_t next = disk.fat_table[a]; //Lookup next cluster
+        if (next == FAT_EOC){ //It is the last of the chain
+            disk.fat_table[a] = b;
+            disk.fat_table[b] = FAT_EOC; //We append b
+            break;
+        }
+
+        //If we are here we have to check if the next cluster is the one that has a "EOC next"
+        a = next;
     }
 
-    while(1){
-        uint32_t next = disk.fat_table[a];
-        if (next == FAT_EOC){}
-    }
     return FAT_SUCCESS;
+
 }
 
 int chain_rm(uint32_t first_cluster)
@@ -381,7 +385,10 @@ int chain_cut(uint32_t first_cluster, int size)
         current = next;
     }
 
-    return chain_rm(disk.fat_table[current]);
+    uint32_t to_delete = disk.fat_table[current];
+    disk.fat_table[current] = FAT_EOC;
+    return chain_rm(to_delete);
+
 }
 
 //File/Directory routine operations
