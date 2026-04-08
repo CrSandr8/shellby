@@ -338,7 +338,7 @@ uint32_t find_free_cluster()
     //Start from nxtfree, we just iterate untile we find
     uint32_t i;
     for(i = start;i < CLUSTER_NUMBER; i++){
-        if(disk.fat_table[i] ==FAT_FREE){
+        if(get_next_cluster(i) == FAT_FREE){
             disk.fsinfo->FSI_Nxt_Free = i + 1;
             return i;
         }
@@ -346,7 +346,7 @@ uint32_t find_free_cluster()
 
     //If we are here we didn't find anything yet, the hint was incorrect
     for(i = ROOT_CLUS; i < start; i++){
-        if(disk.fat_table[i] ==FAT_FREE){
+        if(get_next_cluster(i) == FAT_FREE){
             disk.fsinfo->FSI_Nxt_Free = i + 1;
             return i;
         }        
@@ -384,7 +384,7 @@ uint32_t resolve_path_from_list(const char **path, uint32_t start_cluster)
 int chain_append(uint32_t a, uint32_t b)
 {
     while(1){
-        uint32_t next = disk.fat_table[a]; //Lookup next cluster
+        uint32_t next = get_next_cluster(a); //Lookup next cluster
         if (next == FAT_EOC){ //It is the last of the chain
             disk.fat_table[a] = b;
             disk.fat_table[b] = FAT_EOC; //We append b
@@ -408,7 +408,7 @@ int chain_rm(uint32_t first_cluster)
 
     while (1)
     {
-        uint32_t next = disk.fat_table[current]; //We save where is the next cluster of the chain
+        uint32_t next = get_next_cluster(current); //We save where is the next cluster of the chain
         disk.fat_table[current] = FAT_FREE;      //And free the current one
 
         if (next == FAT_EOC || next == FAT_FREE) //Check out the next one, it might be the the end of the chain
