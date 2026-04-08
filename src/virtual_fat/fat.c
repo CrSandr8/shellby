@@ -298,14 +298,41 @@ int fat_rm(const char *path)
 
 }
 
+
+//TODO add comments
+FAT_FCB  *find_in_dir(const char *target, uint32_t cluster)
+{
+    FAT_FCB *dir_fcbs = (FAT_FCB *)get_cluster_ptr(cluster);
+
+    //TODO make this number static or calculated elsewhere
+
+    int entries_per_clus = CLUSTER_SIZE / sizeof(FAT_FCB);
+
+    int i;
+    for(i = 0; i < entries_per_clus; i++){
+        if (strcmp((char*)dir_fcbs[i].name, target) == 0){
+            return &dir_fcbs[i];
+        }
+    }
+
+    return NULL;
+}
+
 //Cluster routine operations
 
-void *get_cluster_ptr(uint32_t cluster){
+void *get_cluster_ptr(uint32_t cluster)
+{
     if(cluster < ROOT_CLUS) return NULL;
     return &(disk.data_region[(cluster - ROOT_CLUS)*CLUSTER_SIZE]);
 }
 
-uint32_t find_free_cluster(){
+uint32_t get_next_cluster(uint32_t cluster)
+{
+    return disk.fat_table[cluster];
+}
+
+uint32_t find_free_cluster()
+{
     uint32_t start = disk.fsinfo->FSI_Nxt_Free;
 
     //Start from nxtfree, we just iterate untile we find
@@ -328,6 +355,27 @@ uint32_t find_free_cluster(){
     //DISK FULL
     return FAT_ERR_DISK_FULL;
 
+}
+
+uint32_t resolve_path_from_list(const char **path, uint32_t start_cluster)
+{
+    uint32_t current = start_cluster;
+    
+    int i = 0;
+
+    while(path[i] != NULL){
+        FAT_FCB *found = find_in_dir(path[i], current);
+
+        if (found == NULL){
+            return 0;
+        }
+
+        current = found->first_cluster;
+        i++;
+    }
+
+    return current;
+    
 }
 
 
@@ -375,7 +423,7 @@ int chain_rm(uint32_t first_cluster)
 }
 
 
-//The idea here is we navigate the chain unitil the wanted size of it leads to the EOC. At that point we remove the chain with the current cluster as the starting one using chain_rm
+//The idea here is we navigate the chain until the wanted size of the cut leads to the EOC. At that point we remove the chain with the current cluster as the starting one using chain_rm
 int chain_cut(uint32_t first_cluster, int size)
 {
     int i;
@@ -392,11 +440,3 @@ int chain_cut(uint32_t first_cluster, int size)
 }
 
 //File/Directory routine operations
-
-uint32_t read_dir(FAT_FCB to_read){
-    uint32_t size = to_read.file_size;
-    uint32_t entries[size];
-}
-
-int find_DirectoryEntry(const char *path, FAT_FCB *output)
-{}
