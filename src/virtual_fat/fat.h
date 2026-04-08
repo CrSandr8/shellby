@@ -39,5 +39,10 @@ int find_DirectoryEntry(const char *filename, FAT_FCB *output);
 
 int chain_append();
 int chain_rm(uint32_t first_cluster);
+int chain_resize(uint32_t first_cluster, int size);
+
+void *get_cluster_ptr(uint32_t cluster);
+uint32_t find_free_cluster();
+
 
 #endif

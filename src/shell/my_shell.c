@@ -78,7 +78,7 @@ int append(const char *filename, const char *text)
 
 // Safely close everything
 
-int shell_close(const char *filename)
+int shell_close()
 {
     fat_unmount();
 

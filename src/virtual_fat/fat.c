@@ -2,34 +2,6 @@
 
 extern FAT_Disk disk;
 
-int find_DirectoryEntry(const char *path, FAT_FCB *output)
-{}
-
-int chain_append()
-{}
-
-int chain_rm(uint32_t first_cluster)
-{
-    uint32_t current = first_cluster;
-
-    if (current == FAT_FREE) //If cluster is already labeled as free
-        return FAT_SUCCESS;
-
-    while (1)
-    {
-        uint32_t next = disk.fat_table[current]; //We save where is the next cluster of the chain
-        disk.fat_table[current] = FAT_FREE;      //And free the current one
-
-        if (next == FAT_EOC || next == FAT_FREE) //Check out the next one, it might be the the end of the chain
-        {
-            break; //
-        }
-
-        current = next; //If that is not the case we go on with the cycle
-    }
-
-    return FAT_SUCCESS;
-}
 
 int fat_format(const char *filename, int size)
 {
@@ -96,12 +68,15 @@ int fat_format(const char *filename, int size)
     //Locating data region with its offsets
     disk.data_region = (uint8_t *)(base+(DATA_OFFSET*SECTOR_SIZE));
 
-
+    //Setting the starting current directory and path, the root
+    disk.current_dir_cluster = ROOT_CLUS;
+    disk.current_path[0] = "/";
 
     //Hopefully somehow we get here
     return FAT_SUCCESS;
 
 }
+
 
 int fat_mount(const char *filename)
 {
@@ -191,20 +166,27 @@ void fat_unmount(void) // TODO capire se qui ci deve essere un input o no
 }
 
 
-int fat_init(const char *filename)
-{
-    if (fat_mount(filename) == FAT_SUCCESS)
-        return FAT_SUCCESS;
-
-    // might want to format or do some
-}
-
-
 int fat_open(const char *path, int mode)
 {
     // printf("[DEBUG] MOCK: fat_open chiamato con path '%s' e mode %d\n", path, mode);
 
     // return 3;
+
+    int free_index = -1;
+
+    //Looking for a free slot in the open file list
+    for (int i = 0; i < MAX_OPEN_FILES; i++)
+    {
+        if (disk.open_files[i].is_used == 0)
+        {
+            free_index = i;
+        }
+    }
+
+    if (free_index == -1){
+        perror("Error: too many files are open, please close at least one before proceeding");
+        return FAT_ERR_GENERIC;
+    }
 
     FAT_FCB found;
 
@@ -218,19 +200,9 @@ int fat_open(const char *path, int mode)
         return FAT_ERR_GENERIC;
     }
 
-    //Looking for a free slot in the open file list
-    for (int i = 0; i < MAX_OPEN_FILES; i++)
-    {
-        if (disk.open_files[i].is_used == 0)
-        {
-            disk.open_files[i].is_used = 1;
-            disk.open_files[i].cached_entry = found;
-            disk.open_files[i].current_offset = 0;
-            return i;
-        }
-    }
 
-    perror("Error: too many open files!");
+
+    perror("Error: too many open files! Please close one at least before proceding...");
     return FAT_ERR_GENERIC;
 }
 
@@ -256,16 +228,25 @@ int fat_close(int fd)
 }
 int fat_read(int fd, void *buf, int size)
 {
-    printf("[DEBUG] MOCK: fat_read chiamato per l'fd %d, richiedendo %d byte\n", fd, size);
+    //printf("[DEBUG] MOCK: fat_read chiamato per l'fd %d, richiedendo %d byte\n", fd, size);
+    //printf("[DEBUG] MOCK: fat_read chiamato per l'fd %d, richiedendo %d byte\n", fd, size);
+    //printf("[DEBUG] MOCK: fat_read chiamato per l'fd %d, richiedendo %d byte\n", fd, size);
+    //// Inseriamo una finta stringa di testo nel buffer giusto per testare il comando 'cat'
+    //if (buf != NULL && size > 0)
+    //{
+    //    strncpy((char *)buf, "Contenuto fittizio del file lettto con successo!\n", size);
+    //}
+    //// Fingiamo di aver letto esattamente il numero di byte richiesti (o almeno un po')
+    //return size;
 
-    // Inseriamo una finta stringa di testo nel buffer giusto per testare il comando 'cat'
-    if (buf != NULL && size > 0)
-    {
-        strncpy((char *)buf, "Contenuto fittizio del file lettto con successo!\n", size);
+    FAT_Fd *to_read = &disk.open_files[fd];
+
+    //As of now, trying to read more bytes than the file size is not allowed and blocked before even starting to read
+    if (size >= to_read->cached_entry.file_size){
+        perror("Errow: trying to read more bytes than the file size");
+        return FAT_ERR_GENERIC;
     }
 
-    // Fingiamo di aver letto esattamente il numero di byte richiesti (o almeno un po')
-    return size;
 }
 
 
@@ -314,4 +295,101 @@ int fat_rm(const char *path)
 
 
     return FAT_SUCCESS;
+
 }
+
+//Cluster routine operations
+
+void *get_cluster_ptr(uint32_t cluster){
+    if(cluster < ROOT_CLUS) return NULL;
+    return &(disk.data_region[(cluster - ROOT_CLUS)*CLUSTER_SIZE]);
+}
+
+uint32_t find_free_cluster(){
+    uint32_t start = disk.fsinfo->FSI_Nxt_Free;
+
+    //Start from nxtfree, we just iterate untile we find
+    uint32_t i;
+    for(i = start;i < CLUSTER_NUMBER; i++){
+        if(disk.fat_table[i] ==FAT_FREE){
+            disk.fsinfo->FSI_Nxt_Free = i + 1;
+            return i;
+        }
+    }
+
+    //If we are here we didn't find anything yet, the hint was incorrect
+    for(i = ROOT_CLUS; i < start; i++){
+        if(disk.fat_table[i] ==FAT_FREE){
+            disk.fsinfo->FSI_Nxt_Free = i + 1;
+            return i;
+        }        
+    }
+
+    //DISK FULL
+    return FAT_ERR_DISK_FULL;
+
+}
+
+
+//Cluster chains routine operations
+
+int chain_append(uint32_t a, uint32_t b)
+{
+    if (disk.fat_table[a] == FAT_EOC){
+        disk.fat_table[a] = b;
+        disk.fat_table[b] = FAT_EOC;
+    }
+
+    while(1){
+        uint32_t next = disk.fat_table[a];
+        if (next == FAT_EOC){}
+    }
+    return FAT_SUCCESS;
+}
+
+int chain_rm(uint32_t first_cluster)
+{
+    uint32_t current = first_cluster;
+
+    if (current == FAT_FREE) //If cluster is already labeled as free
+        return FAT_SUCCESS;
+
+    while (1)
+    {
+        uint32_t next = disk.fat_table[current]; //We save where is the next cluster of the chain
+        disk.fat_table[current] = FAT_FREE;      //And free the current one
+
+        if (next == FAT_EOC || next == FAT_FREE) //Check out the next one, it might be the the end of the chain
+        {
+            break; //
+        }
+
+        current = next; //If that is not the case we go on with the cycle
+    }
+
+    return FAT_SUCCESS;
+}
+
+
+//The idea here is we navigate the chain unitil the wanted size of it leads to the EOC. At that point we remove the chain with the current cluster as the starting one using chain_rm
+int chain_cut(uint32_t first_cluster, int size)
+{
+    int i;
+    uint32_t current = first_cluster;
+    for(i = 0; i < size; i++){
+        uint32_t next = disk.fat_table[current];
+        current = next;
+    }
+
+    return chain_rm(disk.fat_table[current]);
+}
+
+//File/Directory routine operations
+
+uint32_t read_dir(FAT_FCB to_read){
+    uint32_t size = to_read.file_size;
+    uint32_t entries[size];
+}
+
+int find_DirectoryEntry(const char *path, FAT_FCB *output)
+{}

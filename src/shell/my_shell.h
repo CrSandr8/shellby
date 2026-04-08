@@ -19,6 +19,6 @@ int cat(const char *filename);
 int ls();
 int append(const char *filename, const char *text);
 int rm(const char *path);
-int shell_close(const char *filename);
+int shell_close();
 
 #endif

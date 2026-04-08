@@ -7,6 +7,7 @@
 #define FAT_SUCCESS 0
 #define FAT_ERR_GENERIC -1 // Generic error code
 #define FAT_ERR_BAD_SIG -2 // Non mountable file
+#define FAT_ERR_DISK_FULL -3
 
 // Dimensional values used
 #define SECTOR_SIZE 512 //bytes
@@ -14,6 +15,8 @@
 #define SECTOR_PER_CLUS 4 
 
 #define CLUSTER_SIZE SECTOR_SIZE*SECTOR_PER_CLUS
+
+#define CLUSTER_NUMBER 666 //TODO calculate this
 
 #define SECTOR_RSVD_CNT 2
 #define NUM_FATS 1
@@ -39,7 +42,7 @@
 #define MAX_OPEN_FILES 12
 
 //
-#define DISK_SIZE 66666666
+#define DISK_SIZE 10*1024*1024
 
 // BOOT SECTOR
 
@@ -94,6 +97,8 @@ typedef struct
     uint8_t *data_region;
 
     FAT_Fd open_files[MAX_OPEN_FILES];
+    uint32_t current_dir_cluster;
+    char current_path[1024];
 
 } FAT_Disk;
 
