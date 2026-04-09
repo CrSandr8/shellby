@@ -9,9 +9,6 @@
 #define FAT_ERR_BAD_SIG -2 // Non mountable file
 #define FAT_ERR_DISK_FULL -3
 
-// Dimensional values used
-#define SECTOR_SIZE 512 // bytes
-
 // Personalized signature
 #define BS_SIGNATURE 0xAC18
 
@@ -22,7 +19,13 @@
 #define FAT_BADCLUSTER 0x0FFFFFF7
 #define FAT_EOC 0x0FFFFFF8
 
-//
+
+#define MIN_DISK_SIZE 1024 * 1024
+
+// Dimensional values used
+#define SECTOR_SIZE 512 // bytes
+#define ENTRIES_PER_SEC SECTOR_SIZE / 32
+
 #define MAX_OPEN_FILES 12
 
 // TODO add disk size selector/macro elsewhere
@@ -70,12 +73,9 @@ typedef struct
     FAT_Fd open_files[MAX_OPEN_FILES];
     FAT_FCB *cwd;
 
+
 } FAT_Disk;
 
-#define MIN_DISK_SIZE 1024 * 1024
-
 extern FAT_Disk *disk;
-
-#define ENTRIES_PER_SEC SECTOR_SIZE / (sizeof(FAT_FCB))
 
 #endif
