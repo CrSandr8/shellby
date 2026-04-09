@@ -12,22 +12,6 @@
 // Dimensional values used
 #define SECTOR_SIZE 512 //bytes
 
-#define SECTOR_PER_CLUS 4 
-
-#define CLUSTER_SIZE SECTOR_SIZE*SECTOR_PER_CLUS
-
-#define CLUSTER_NUMBER 666 //TODO calculate this
-
-#define SECTOR_RSVD_CNT 2
-#define NUM_FATS 1
-
-// Offset calculated in sectors
-#define FSINFO_OFFSET 1
-#define FAT_OFFSET 2 
-#define DATA_OFFSET FAT_OFFSET+NUM_FATS-1
-
-#define ROOT_CLUS 2 //offset in clusters here
-
 // Personalized signature
 #define BS_SIGNATURE 0xAC18
 
@@ -48,30 +32,20 @@
 
 typedef struct
 {
-
-    uint16_t BytsPerSec;    // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
-    uint8_t SecPerClus;     // Sector per allocation unit This value must be a power of 2 that is greater than 0. The legal values are 1, 2, 4, 8, 16, 32, 64, and 128
-    uint16_t RsvdSecCnt;    // Basically the sectors before the data region
-    uint32_t FATSz;         // Size of the FAT in unit of sector.
-    uint32_t RootClus;      // First cluster number of root directory (Usually 2)
-    uint16_t FSInfo_offset; // Sector of FSInfo structure in offset from top of the FAT volume (Usually 1)
-    uint8_t padding[495];
     uint16_t Signature;
+    uint16_t BytsPerSec;    // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
+    uint32_t FATSz;         // Size of the FAT in unit of sector.
+    uint32_t RootSec;      // First sector number of root directory
+    uint32_t FSI_Free_Count;     // Last known free sector count
+    uint32_t FSI_Nxt_Free;       // The offset of a hinted free block
+    uint8_t padding[492];
 
-} __attribute__((packed)) FAT_BootSector; // 512 bytes
-
-typedef struct
-{
-    uint32_t FSI_Free_Count;     // Last known free cluster count (4 byte)
-    uint32_t FSI_Nxt_Free;       // A hint for the next free cluster (4 byte)   
-    uint8_t  padding[504];       
-    
-} __attribute__((packed)) FAT_FSInfo;  // 512 bytes
+} __attribute__((packed)) FAT_Superblock; // 512 bytes
 
 typedef struct
 {
     uint8_t name[23];       // name always has 22 chars
-    uint32_t first_cluster; // first cluster index
+    uint32_t first_sector; // first sector index
     uint8_t is_dir;         // is this a directory?
     uint32_t file_size;
 
@@ -91,17 +65,16 @@ typedef struct
     uint8_t *disk_base;
     uint32_t disk_size;
 
-    FAT_BootSector *bs;
-    FAT_FSInfo *fsinfo;
-    uint32_t *fat_table;
-    uint8_t *data_region;
+    FAT_Superblock *sb;
+    uint32_t *fat;      //The actual File Allocation Table
+    uint8_t *data;      //The data region
 
     FAT_Fd open_files[MAX_OPEN_FILES];
-    uint32_t current_dir_cluster;
-    char current_path[1024];
 
 } FAT_Disk;
 
-// uint32_t first_data_sector = fs_state.bs->RsvdSecCnt + (fs_state.bs->NumFATS * fs_state.bs->FATSz);
+extern FAT_Disk disk;
+
+#define ENTRIES_PER_SEC SECTOR_SIZE/(sizeof(FAT_FCB))
 
 #endif

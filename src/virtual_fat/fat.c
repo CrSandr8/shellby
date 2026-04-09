@@ -1,7 +1,6 @@
 #include "fat.h"
 
-extern FAT_Disk disk;
-
+//==================================== FS API ================================//
 
 int fat_format(const char *filename, int size)
 {
@@ -29,48 +28,23 @@ int fat_format(const char *filename, int size)
 
     //Setting up default values for structs and initializing the FS
 
-    disk.bs = (FAT_BootSector *)(base); //The boot sector is at the top of the disk
+    //disk.bs = (FAT_BootSector *)(base); //The boot sector is at the top of the disk
 
     //Here we want to make sure all values are dynamic and there are no real addresses but offsets
-    disk.bs->BytsPerSec = SECTOR_SIZE;
-    disk.bs->SecPerClus = SECTOR_PER_CLUS;
-    disk.bs->RsvdSecCnt = SECTOR_RSVD_CNT;
-
-    //Operations needed to calculate the actual FAT size
-    int total_clusters = (size/SECTOR_SIZE)/SECTOR_PER_CLUS;
-    int fat_bytes = total_clusters*4;
-    int fat_size = fat_bytes/SECTOR_SIZE;
-
-    disk.bs->FATSz = fat_size;
-
-    disk.bs->RootClus = ROOT_CLUS; //This offset is in clusters
-
-    disk.bs->FSInfo_offset = FSINFO_OFFSET; //This is in sectors
-
-    disk.bs->Signature = BS_SIGNATURE; //This is personalized
-
-    disk.fsinfo = (FAT_FSInfo *)(base+(FSINFO_OFFSET*SECTOR_SIZE)); //Again offset in sectors
-
-    disk.fsinfo->FSI_Nxt_Free = ROOT_CLUS + SECTOR_PER_CLUS; //The first free cluster will be the one next to the root directory
+    //disk.bs->BytsPerSec = SECTOR_SIZE;
+    //disk.bs->SecPerClus = SECTOR_PER_CLUS;
+    //disk.bs->RsvdSecCnt = SECTOR_RSVD_CNT;
 
     //Operations needed to calculate the data region size
-    int total_sectors = size / 512;
-    int available_sectors = total_sectors - ROOT_CLUS; //TODO
 
-    int data_clusters;
-
-    disk.fsinfo->FSI_Free_Count = data_clusters;
 
     //Locating FAT table with its offsets and initializing it
-    disk.fat_table = (uint32_t *)(base+(FAT_OFFSET*SECTOR_SIZE));
-    memset(disk.fat_table, 0, disk.bs->FATSz*disk.bs->BytsPerSec);
+
 
     //Locating data region with its offsets
-    disk.data_region = (uint8_t *)(base+(DATA_OFFSET*SECTOR_SIZE));
 
     //Setting the starting current directory and path, the root
-    disk.current_dir_cluster = ROOT_CLUS;
-    disk.current_path[0] = "/";
+
 
     //Hopefully somehow we get here
     return FAT_SUCCESS;
@@ -88,7 +62,7 @@ int fat_mount(const char *filename)
         return FAT_ERR_GENERIC;
     }
 
-    disk.disk_size = DISK_SIZE; //TODO checkout if this has to be corrected
+    //disk.disk_size = DISK_SIZE; //TODO checkout if this has to be corrected
 
     disk.disk_base = mmap(NULL, disk.disk_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
@@ -98,11 +72,9 @@ int fat_mount(const char *filename)
         return FAT_ERR_GENERIC;
     }
 
-    disk.bs = (FAT_BootSector *)disk.disk_base;
-
     printf("Checking disk signature...\n");
 
-    if (disk.bs->Signature != BS_SIGNATURE)
+    if (disk.sb->Signature != BS_SIGNATURE)
     {
         munmap(disk.disk_base, disk.disk_size);
         disk.disk_base = NULL;
@@ -117,14 +89,14 @@ int fat_mount(const char *filename)
     // NOTE: the following offsets are in bytes
 
     //TODO might want to rewrite this operations based on the ones of the fat_format
-    uint32_t fsi_offset = disk.bs->BytsPerSec * disk.bs->FSInfo_offset;
-    disk.fsinfo = (FAT_FSInfo *)(disk.disk_base + fsi_offset);
+    //uint32_t fsi_offset = disk.bs->BytsPerSec * disk.bs->FSInfo_offset;
+    //disk.fsinfo = (FAT_FSInfo *)(disk.disk_base + fsi_offset);
 
-    uint32_t fat_offset = disk.bs->BytsPerSec * disk.bs->RsvdSecCnt;
-    disk.fat_table = (uint32_t *)(disk.disk_base + fat_offset);
-
-    uint32_t data_offset = (disk.bs->RsvdSecCnt + disk.bs->FATSz) * disk.bs->BytsPerSec;
-    disk.data_region = (uint8_t *)(disk.disk_base + data_offset);
+    //uint32_t fat_offset = disk.bs->BytsPerSec * disk.bs->RsvdSecCnt;
+    //disk.fat_table = (uint32_t *)(disk.disk_base + fat_offset);
+//
+    //uint32_t data_offset = (disk.bs->RsvdSecCnt + disk.bs->FATSz) * disk.bs->BytsPerSec;
+    //disk.data_region = (uint8_t *)(disk.disk_base + data_offset);
 
     for (int i = 0; i < MAX_OPEN_FILES; i++)
     {
@@ -285,7 +257,7 @@ int fat_rm(const char *path)
         return FAT_ERR_GENERIC;
     }
 
-    if (chain_rm(out.first_cluster) == FAT_ERR_GENERIC)
+    if (chain_rm(out.first_sector) == FAT_ERR_GENERIC)
     {
         perror("Error while trying to remove related clusters");
         return FAT_ERR_GENERIC;
@@ -298,18 +270,36 @@ int fat_rm(const char *path)
 
 }
 
+//==================================== Helper functions from here ================================//
+
+int tokenize_path(char *buf, char *tokens[], int max_tokens) //TODO check the max tokens control
+{
+    char *token = strtok(buf, "/");
+
+    int i = 0;
+
+    while (token != NULL && i < max_tokens - 1){
+        tokens[i] = token;
+
+        token = strtok(NULL, "/"); //Here we go on to the next word by using the weird effect of passing NULL as an arg for strtok gg
+        i++;
+    }
+
+    tokens[i] = NULL; //We use NULL in the token list to specify it is terminated, like the "\0" for the strings gg
+
+    return i;
+}
 
 //TODO add comments
-FAT_FCB  *find_in_dir(const char *target, uint32_t cluster)
+FAT_FCB  *find_in_dir(const char *target, uint32_t sector)
 {
-    FAT_FCB *dir_fcbs = (FAT_FCB *)get_cluster_ptr(cluster);
+    FAT_FCB *dir_fcbs = (FAT_FCB *)get_cluster_ptr(sector);
 
     //TODO make this number static or calculated elsewhere
-
-    int entries_per_clus = CLUSTER_SIZE / sizeof(FAT_FCB);
+    //Maybe now it is
 
     int i;
-    for(i = 0; i < entries_per_clus; i++){
+    for(i = 0; i < ENTRIES_PER_SEC; i++){
         if (strcmp((char*)dir_fcbs[i].name, target) == 0){
             return &dir_fcbs[i];
         }
@@ -318,36 +308,53 @@ FAT_FCB  *find_in_dir(const char *target, uint32_t cluster)
     return NULL;
 }
 
-//Cluster routine operations
-
-void *get_cluster_ptr(uint32_t cluster)
+int delete_fcb(const char *target, uint32_t sector)
 {
-    if(cluster < ROOT_CLUS) return NULL;
-    return &(disk.data_region[(cluster - ROOT_CLUS)*CLUSTER_SIZE]);
+
 }
 
-uint32_t get_next_cluster(uint32_t cluster)
+//Cluster routine operations
+
+int get_sector_number()
 {
-    return disk.fat_table[cluster];
+    return (disk.disk_size - sizeof(FAT_Superblock) - sizeof(disk.fat))/SECTOR_SIZE;
+}
+
+uint32_t get_root_sector()
+{
+    return (disk.sb->RootSec);
+}
+
+void *get_cluster_ptr(uint32_t sector)
+{
+    if(sector < get_root_sector()) return NULL;
+    return &(disk.data[(sector - get_root_sector())*SECTOR_SIZE]);
+}
+
+uint32_t get_next_sector(uint32_t sector)
+{
+    return disk.fat[sector];
 }
 
 uint32_t find_free_cluster()
 {
-    uint32_t start = disk.fsinfo->FSI_Nxt_Free;
+    uint32_t start = disk.sb->FSI_Nxt_Free;
 
     //Start from nxtfree, we just iterate untile we find
     uint32_t i;
-    for(i = start;i < CLUSTER_NUMBER; i++){
-        if(get_next_cluster(i) == FAT_FREE){
-            disk.fsinfo->FSI_Nxt_Free = i + 1;
+    for(i = start;i < get_sector_number; i++){
+        if(get_next_sector(i) == FAT_FREE){
+            disk.sb->FSI_Nxt_Free = i + 1;
+            disk.sb->FSI_Free_Count--;
             return i;
         }
     }
 
     //If we are here we didn't find anything yet, the hint was incorrect
-    for(i = ROOT_CLUS; i < start; i++){
-        if(get_next_cluster(i) == FAT_FREE){
-            disk.fsinfo->FSI_Nxt_Free = i + 1;
+    for(i = disk.sb->RootSec; i < start; i++){
+        if(get_next_sector(i) == FAT_FREE){
+            disk.sb->FSI_Nxt_Free = i + 1;
+            disk.sb->FSI_Free_Count--;
             return i;
         }        
     }
@@ -370,7 +377,7 @@ uint32_t resolve_path_from_list(const char **path, uint32_t start_cluster)
             return 0;
         }
 
-        current = found->first_cluster;
+        current = found->first_sector;
         i++;
     }
 
@@ -379,19 +386,19 @@ uint32_t resolve_path_from_list(const char **path, uint32_t start_cluster)
 }
 
 
-//Cluster chains routine operations
+//Sector chains routine operations
 
 int chain_append(uint32_t a, uint32_t b)
 {
     while(1){
-        uint32_t next = get_next_cluster(a); //Lookup next cluster
+        uint32_t next = get_next_sector(a); //Lookup next sector
         if (next == FAT_EOC){ //It is the last of the chain
-            disk.fat_table[a] = b;
-            disk.fat_table[b] = FAT_EOC; //We append b
+            disk.fat[a] = b;
+            disk.fat[b] = FAT_EOC; //We append b
             break;
         }
 
-        //If we are here we have to check if the next cluster is the one that has a "EOC next"
+        //If we are here we have to check if the next sector is the one that has a "EOC next"
         a = next;
     }
 
@@ -399,17 +406,17 @@ int chain_append(uint32_t a, uint32_t b)
 
 }
 
-int chain_rm(uint32_t first_cluster)
+int chain_rm(uint32_t first_sector)
 {
-    uint32_t current = first_cluster;
+    uint32_t current = first_sector;
 
-    if (current == FAT_FREE) //If cluster is already labeled as free
+    if (current == FAT_FREE) //If sector is already labeled as free
         return FAT_SUCCESS;
 
     while (1)
     {
-        uint32_t next = get_next_cluster(current); //We save where is the next cluster of the chain
-        disk.fat_table[current] = FAT_FREE;      //And free the current one
+        uint32_t next = get_next_sector(current); //We save where is the next sector of the chain
+        disk.fat[current] = FAT_FREE;      //And free the current one
 
         if (next == FAT_EOC || next == FAT_FREE) //Check out the next one, it might be the the end of the chain
         {
@@ -423,20 +430,18 @@ int chain_rm(uint32_t first_cluster)
 }
 
 
-//The idea here is we navigate the chain until the wanted size of the cut leads to the EOC. At that point we remove the chain with the current cluster as the starting one using chain_rm
-int chain_cut(uint32_t first_cluster, int size)
+//The idea here is we navigate the chain until the wanted size of the cut leads to the EOC. At that point we remove the chain with the current sector as the starting one using chain_rm
+int chain_cut(uint32_t first_sector, int size)
 {
     int i;
-    uint32_t current = first_cluster;
+    uint32_t current = first_sector;
     for(i = 0; i < size; i++){
-        uint32_t next = disk.fat_table[current];
+        uint32_t next = disk.fat[current];
         current = next;
     }
 
-    uint32_t to_delete = disk.fat_table[current];
-    disk.fat_table[current] = FAT_EOC;
+    uint32_t to_delete = get_next_sector(current);
+    disk.fat[current] = FAT_EOC;
     return chain_rm(to_delete);
 
 }
-
-//File/Directory routine operations
