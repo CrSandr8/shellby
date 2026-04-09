@@ -10,7 +10,7 @@
 #define FAT_ERR_DISK_FULL -3
 
 // Dimensional values used
-#define SECTOR_SIZE 512 //bytes
+#define SECTOR_SIZE 512 // bytes
 
 // Personalized signature
 #define BS_SIGNATURE 0xAC18
@@ -25,28 +25,25 @@
 //
 #define MAX_OPEN_FILES 12
 
-//
-#define DISK_SIZE 10*1024*1024
-
-// BOOT SECTOR
+// TODO add disk size selector/macro elsewhere
 
 typedef struct
 {
     uint16_t Signature;
-    uint16_t BytsPerSec;    // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
-    uint32_t FATSz;         // Size of the FAT in unit of sector.
-    uint32_t RootSec;      // First sector number of root directory
-    uint32_t FSI_Free_Count;     // Last known free sector count
-    uint32_t FSI_Nxt_Free;       // The offset of a hinted free block
+    uint16_t BytsPerSec;     // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
+    uint32_t FATSz;          // Size of the FAT.
+    uint32_t RootSec;        // First sector number of root directory
+    uint32_t FSI_Free_Count; // Last known free sector count
+    uint32_t FSI_Nxt_Free;   // The offset of a hinted free block
     uint8_t padding[492];
 
 } __attribute__((packed)) FAT_Superblock; // 512 bytes
 
 typedef struct
 {
-    uint8_t name[23];       // name always has 22 chars
+    uint8_t name[23];      // name always has 22 chars
     uint32_t first_sector; // first sector index
-    uint8_t is_dir;         // is this a directory?
+    uint8_t is_dir;        // is this a directory?
     uint32_t file_size;
 
 } __attribute__((packed)) FAT_FCB; // 32 bytes
@@ -62,19 +59,23 @@ typedef struct
 
 typedef struct
 {
-    uint8_t *disk_base;
+    uint8_t disk_name[64];
     uint32_t disk_size;
 
+    void *disk_base;
     FAT_Superblock *sb;
-    uint32_t *fat;      //The actual File Allocation Table
-    uint8_t *data;      //The data region
+    uint32_t *fat; // The actual File Allocation Table
+    uint8_t *data; // The data region
 
     FAT_Fd open_files[MAX_OPEN_FILES];
+    FAT_FCB *cwd;
 
 } FAT_Disk;
 
-extern FAT_Disk disk;
+#define MIN_DISK_SIZE 1024 * 1024
 
-#define ENTRIES_PER_SEC SECTOR_SIZE/(sizeof(FAT_FCB))
+extern FAT_Disk *disk;
+
+#define ENTRIES_PER_SEC SECTOR_SIZE / (sizeof(FAT_FCB))
 
 #endif

@@ -1,5 +1,18 @@
 #include "my_shell.h"
 
+cmd_t cmd_table[] = {
+    {"format", cmd_format, "format file as a shellby fs file with the given size"},
+    {"mkdir", cmd_mkdir, ""},
+    {"cd", cmd_cd, ""},
+    {"touch", cmd_touch, ""},
+    {"cat", cmd_cat, ""},
+    {"ls", cmd_ls, ""},
+    {"append", cmd_append, ""},
+    {"rm", cmd_rm, ""},
+    {"close", cmd_close, ""},
+    {NULL, NULL, NULL}
+};
+
 void deallocate_cmd(char* argv[MAX_TOKENS]) {
 	while (*argv != NULL)
 		free(*argv++);
@@ -12,75 +25,59 @@ char* dup_string(const char* in) {
     return out;
 }
 
-void get_cmd_line(char* argv[MAX_TOKENS]) {
-    int argc = 0;
+void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
     char line[MAX_LINE];
     fgets(line, MAX_LINE, stdin);
     char* token = strtok(line, " \t\n");
-    argc = 0;
-    while (argc < MAX_TOKENS && token != NULL) {
-        argv[argc++] = dup_string(token);
+    *argc = 0;
+    while (*argc < MAX_TOKENS && token != NULL) {
+        argv[(*argc)++] = dup_string(token);
         token = strtok(NULL, " \t\n");
     }
-    argv[argc] = NULL;
+    argv[*argc] = NULL;
 }
+
+int do_cmd(char* argv[MAX_TOKENS], int argc)
+{
+    if (argc == 0 || argv[0] == NULL) return 0;
+
+    for (int i = 0; cmd_table[i].name != NULL; i++) {
+        if (strcmp(argv[0], cmd_table[i].name) == 0) {
+            return cmd_table[i].func(argc, argv);
+        }
+    }
+
+    printf("Shellby: command not found: %s\n", argv[0]);
+    return -1;
+}
+
+int do_shell(const char* prompt){
+    printf("lscmd: lists the available commands\n");
+    for (;;) {
+        printf("%s", prompt);
+        char* argv[MAX_TOKENS];
+        int argc = 0;
+        get_cmd_line(argv, &argc);
+        if (argv[0] == NULL) continue;
+        if (strcmp(argv[0], "quit") == 0) break;
+        do_cmd(argv, argc);
+	    deallocate_cmd(argv);
+    }
+    return EXIT_SUCCESS;
+}
+
 
 // Print file rows as raw text
 
 int cat(const char *filename)
-{
-    int fd = fat_open(filename, 0);
-
-    if (fd == FAT_ERR_GENERIC){
-        printf("Error: file not found");
-        return -1;
-    }
-
-    char buffer[512] = {0};
-
-    int read = fat_read(fd, buffer, sizeof(buffer) - 1);
-
-    if (read > 0){
-        prinf("%s", buffer);
-    }
-
-    fat_close(fd);
-
-    return 0;
-
-}
+{}
 
 // Append the inserted text to the selected file 
 
 int append(const char *filename, const char *text)
-{
-    int fd = fat_open(filename, 1);
-
-    if (fd == FAT_ERR_GENERIC){
-        printf("Error: file not found");
-        return -1;
-    }
-
-    char buffer[512] = {0};
-
-    int size = sizeof(buffer);
-
-    int written = fat_write(fd, buffer, size - 1);
-
-    if (written > 0){
-        printf("Append success of %d in file %s\n", size-1);
-    }
-
-    fat_close(fd);
-
-    return 0;
-}
+{}
 
 // Safely close everything
 
 int shell_close()
-{
-    fat_unmount();
-
-    return 1;
-}
+{}

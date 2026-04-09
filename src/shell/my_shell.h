@@ -7,18 +7,41 @@
 #define MAX_LINE    1024
 #define MAX_TOKENS  64
 
+typedef int (*cmd_func_t)(int argc, char **argv);
+
+typedef struct {
+    char *name;
+    cmd_func_t func;
+    char *help;
+} cmd_t;
+
 void deallocate_cmd(char* argv[MAX_TOKENS]);
 char* dup_string(const char* in);
-void get_cmd_line(char* argv[MAX_TOKENS]);
+void get_cmd_line(char* argv[MAX_TOKENS], int *argc);
+int do_shell(const char* prompt);
 
-int format(const char *name, int size);
-int mkdir(const char *filename);
-int cd(const char *path);
-int touch(const char *filename);
-int cat(const char *filename);
-int ls();
-int append(const char *filename, const char *text);
-int rm(const char *path);
-int shell_close();
+int cmd_format(int argc, char **argv);
+int cmd_mkdir(int argc, char **argv);
+int cmd_cd(int argc, char **argv);
+int cmd_touch(int argc, char **argv);
+int cmd_cat(int argc, char **argv);
+int cmd_ls(int argc, char **argv);
+int cmd_append(int argc, char **argv);
+int cmd_rm(int argc, char **argv);
+
+int cmd_close(int argc, char **argv);
+
+/*
+   Comandi usuali di shell (e di "libreria)
+   - format <fs_filename> <size>
+   - mkdir
+   - cd
+   - touch (crea un file vuoto)
+   - cat (stampa il contenuto di un file su schermo)
+   - ls
+   - append <file> <testo>
+   - rm <dir/file>
+   - close
+*/
 
 #endif

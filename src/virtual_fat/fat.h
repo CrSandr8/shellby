@@ -8,19 +8,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int fat_mount(const char *filename);
-void fat_unmount(void);
+int fat_unmount(void);
 int fat_format(const char *filename, int size);
 
-int fat_open(const char *path, int mode);
-int fat_close(int fd);
-int fat_read(int fd, void *buf, int size);
-int fat_write(int fd, const void *buf, int size);
-int fat_lseek(int fd, int offset, int whence);
-
-int fat_mkdir(const char *path);
-int fat_rm(const char *path);
 
 #endif
