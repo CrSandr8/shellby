@@ -71,8 +71,9 @@ typedef struct
     uint8_t *data; // The data region
 
     FAT_Fd open_files[MAX_OPEN_FILES];
-    FAT_FCB *cwd;
 
+    uint32_t cwd_sector;
+    char cwd_path[256];
 
 } FAT_Disk;
 

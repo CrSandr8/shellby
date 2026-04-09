@@ -40,10 +40,13 @@ int fat_create_disk(const char *filename, int size)
     sb->FATSz = fat_size;
     sb->RootSec = sizeof(FAT_Superblock) + sb->FATSz;
     sb->FSI_Free_Count = num_sectors;
-    sb->FSI_Nxt_Free = 0; //TODO initialize this
+    sb->FSI_Nxt_Free = 1; //We put the root at index 0
 
     uint32_t *fat = (uint32_t *)((uint8_t *)base + sizeof(FAT_Superblock));
     uint8_t *data = (uint8_t *)((uint8_t *)base + sizeof(FAT_Superblock) + sb->FATSz);
+
+    fat[0] = FAT_EOC;
+    sb->FSI_Free_Count--;
 
     printf("Successfully formatted disk %s with size %d\n", filename, disk_size);
 
@@ -100,7 +103,9 @@ int fat_mount(const char *disk_path)
     disk->fat = (uint32_t *)((uint8_t *)disk->disk_base + sizeof(FAT_Superblock));
     disk->data = (uint8_t *)((uint8_t *)disk->disk_base + sizeof(FAT_Superblock) + disk->sb->FATSz);
 
-    disk->cwd = (FAT_FCB *)((uint8_t *)disk->disk_base + disk->sb->RootSec);
+    disk->cwd_sector = 0;
+    strcpy(disk->cwd_path, "/");
+
 
     for (int i = 0; i < MAX_OPEN_FILES; i++)
     {
@@ -143,10 +148,74 @@ int fat_unmount(const char *disk_path)
 }
 
 
+int fat_createdir(const char *name)
+{
+    if (find_in_dir(name) != NULL){
+        perror("Directory already exists");
+        return FAT_ERR_GENERIC;
+    }
+
+    if (find_free_slot() == NULL){
+        chain_append(disk->cwd_sector, );
+    }
+}
+
 int fat_rmdir(const char *path)
 {
 
     FAT_FCB *found = find_in_dir(path);
+}
+
+//================================================================
+//=============================== FCB routine operations
+//================================================================
+
+#define get_entries(a) ((FAT_FCB *)(disk->data + (a * SECTOR_SIZE)))
+
+FAT_FCB *find_in_dir(const char *name) //Look for a file named name in the current dir
+{
+    uint32_t current = disk->cwd_sector;
+
+    while(current != FAT_EOC && current != FAT_FREE){
+        FAT_FCB *entries = get_entries(current);
+
+        //We cycle in this sector
+        for (int i = 0; i < ENTRIES_PER_SEC; i++)
+        {
+            //
+            if (entries[i].name[0] != '\0' && strcmp((char*)entries[i].name, name) == 0)
+            {
+                return &entries[i]; // Found it!
+            }
+        }
+
+        // Go on with the chain
+        current = disk->fat[current];
+    }
+
+    //If we arrive here nothing has been found
+    return NULL;
+
+}
+
+FAT_FCB *find_free_slot() //Starting from the current location, look for empty space in sectors
+{
+    uint32_t current = disk->cwd_sector;
+
+    while(current != FAT_EOC && current != FAT_FREE){
+        FAT_FCB *entries = get_entries(current);
+
+        for(int i = 0; i < ENTRIES_PER_SEC; i++){
+            if(entries[i].name[0] == '\0'){
+                return &entries[i];
+            }
+        }
+
+        current = disk->fat[current];
+    }
+
+    return NULL;
+
 }
 
 //================================================================
@@ -209,6 +278,36 @@ int chain_cut(uint32_t first_sector, int size)
     uint32_t to_delete = get_next_sector(current);
     disk->fat[current] = FAT_EOC;
     return chain_rm(to_delete);
+}
+
+uint32_t get_free_sector()
+{
+    if (disk->sb->FSI_Free_Count == 0) return FAT_ERR_DISK_FULL;
+
+    uint32_t start = disk->sb->FSI_Nxt_Free;
+
+    //Start from nxtfree, we just iterate untile we find
+    uint32_t i;
+    int max = disk->sb->FATSz/sizeof(uint32_t);
+
+    for(i = start; i < max; i++){
+        if(disk->fat[i] == FAT_FREE){
+            disk->sb->FSI_Nxt_Free = i + 1;
+            return i;
+        }
+    }
+
+    //If we are here we didn't find anything yet, the hint was incorrect
+    for(i = 0; i < start; i++){
+        if(disk->fat[i] == FAT_FREE){
+            disk->sb->FSI_Nxt_Free = i + 1;
+            return i;
+        }        
+    }
+
+    //DISK FULL
+    return FAT_ERR_DISK_FULL;
+
 }
 
 int get_num_sectors(int data_size)
