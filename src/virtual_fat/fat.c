@@ -155,16 +155,43 @@ int fat_createdir(const char *name)
         return FAT_ERR_GENERIC;
     }
 
-    if (find_free_slot() == NULL){
-        chain_append(disk->cwd_sector, );
+    FAT_FCB * current = find_free_slot();
+
+    if (current == NULL){
+        perror("Directory is full");
+        return FAT_ERR_GENERIC;
     }
+
+    strcpy(current->name, name);
+    current->is_dir = 1;
+
+   //TODO TBC
 }
 
 int fat_rmdir(const char *path)
-{
+{}
 
-    FAT_FCB *found = find_in_dir(path);
-}
+FAT_Fd *fat_createfile(const char *filename)
+{
+    if (find_in_dir(filename) != NULL){
+        perror("File already exists");
+        return NULL;
+    }
+
+    FAT_FCB *new = find_free_slot();
+
+    if (new == NULL){
+        perror("Directory is full");
+        return NULL;
+    }
+
+    strcpy(new->name, filename);
+    new->is_dir = 0;
+    new->file_size = 0;
+
+    //TODO TBC
+    
+} 
 
 //================================================================
 //=============================== FCB routine operations
@@ -252,6 +279,7 @@ int chain_rm(uint32_t first_sector)
     {
         uint32_t next = get_next_sector(current); // We save where is the next sector of the chain
         disk->fat[current] = FAT_FREE;             // And free the current one
+        disk->sb->FSI_Free_Count++;
 
         if (next == FAT_EOC || next == FAT_FREE) // Check out the next one, it might be the the end of the chain
         {
@@ -269,15 +297,23 @@ int chain_cut(uint32_t first_sector, int size)
 {
     int i;
     uint32_t current = first_sector;
-    for (i = 0; i < size; i++)
+    for (i = 0; i < size-1; i++)
     {
         uint32_t next = disk->fat[current];
+        if(next == FAT_EOC) break;
         current = next;
     }
 
-    uint32_t to_delete = get_next_sector(current);
-    disk->fat[current] = FAT_EOC;
-    return chain_rm(to_delete);
+    uint32_t to_delete = disk->fat[current];
+
+    if (to_delete != FAT_EOC && to_delete != FAT_FREE)
+    {
+        disk->fat[current] = FAT_EOC;
+        return chain_rm(to_delete);
+    }
+
+    return FAT_SUCCESS;
+
 }
 
 uint32_t get_free_sector()
