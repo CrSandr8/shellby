@@ -122,7 +122,7 @@ int fat_mount(const char *disk_path)
     return FAT_SUCCESS;
 }
 
-int fat_unmount(const char *disk_path)
+int fat_unmount(void)
 {
 
     printf("Starting unmount process...\n");
@@ -155,15 +155,38 @@ int fat_createdir(const char *name)
         return FAT_ERR_GENERIC;
     }
 
-    FAT_FCB * current = find_free_slot();
+    FAT_FCB *new = find_free_slot();
 
-    if (current == NULL){
+    if (new == NULL){
         perror("Directory is full");
         return FAT_ERR_GENERIC;
     }
 
-    strcpy(current->name, name);
-    current->is_dir = 1;
+    uint32_t new_first_sector = get_free_sector();
+    if (new_first_sector == FAT_ERR_DISK_FULL){
+        perror("No more disk space");
+        return NULL;
+    }
+
+    strcpy(new->name, name);
+    new->is_dir = 1;
+    new->file_size = 0;
+    disk->fat[new_first_sector] = FAT_EOC;
+    new->first_sector = new_first_sector;
+
+    FAT_FCB *entries = get_entries(new_first_sector);
+
+    memset(entries, 0, SECTOR_SIZE);
+
+    strcpy((char*)entries[0].name, ".");
+    entries[0].is_dir = 1;
+    entries[0].first_sector = new_first_sector; //Points to itself
+
+    strcpy((char*)entries[1].name, "..");
+    entries[1].is_dir = 1;
+    entries[1].first_sector = disk->cwd_sector; //Points to the directory in which we are creating the new one, basically the parent directory
+
+    return FAT_SUCCESS;
 
    //TODO TBC
 }
@@ -185,9 +208,19 @@ FAT_Fd *fat_createfile(const char *filename)
         return NULL;
     }
 
+    uint32_t new_first_sector = get_free_sector();
+    if (new_first_sector == FAT_ERR_DISK_FULL){
+        perror("No more disk space");
+        return NULL;
+    }
+
     strcpy(new->name, filename);
     new->is_dir = 0;
     new->file_size = 0;
+    disk->fat[new_first_sector] = FAT_EOC;
+    new->first_sector = new_first_sector;
+
+    return new;
 
     //TODO TBC
     
