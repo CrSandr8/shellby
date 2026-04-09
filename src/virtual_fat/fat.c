@@ -1,7 +1,9 @@
 #include "fat.h"
 
+FAT_Disk *disk = NULL;
+
 //============================================================================//
-//==================================== FS API ================================//
+//============================== Disk Manipulation ===========================//
 //============================================================================//
 
 int fat_create_disk(const char *filename, int size)
@@ -147,15 +149,18 @@ int fat_unmount(void)
     return FAT_SUCCESS;
 }
 
+//============================================================================//
+//================================ FS API ====================================//
+//============================================================================//
 
 int fat_createdir(const char *name)
 {
-    if (find_in_dir(name) != NULL){
+    if (find_in_dir(name, disk->cwd_sector) != NULL){
         perror("Directory already exists");
         return FAT_ERR_GENERIC;
     }
 
-    FAT_FCB *new = find_free_slot();
+    FAT_FCB *new = find_free_slot(disk->cwd_sector);
 
     if (new == NULL){
         perror("Directory is full");
@@ -194,14 +199,33 @@ int fat_createdir(const char *name)
 int fat_rmdir(const char *path)
 {}
 
-FAT_Fd *fat_createfile(const char *filename)
+int fat_change_dir(const char *path)
 {
-    if (find_in_dir(filename) != NULL){
+    uint32_t target = fat_resolve_path(path);
+
+    if (target == FAT_ERR_GENERIC){
+        perror("Error: cannot resolve path");
+        return FAT_ERR_GENERIC;
+    }
+
+    if (update_cwd_path(path) != FAT_SUCCESS){
+        perror("Something went wrong while changing current path in shell");
+        return FAT_ERR_GENERIC;
+    }
+
+    disk->cwd_sector = target;
+
+    return FAT_SUCCESS;
+}
+
+int fat_createfile(const char *filename)
+{
+    if (find_in_dir(filename, disk->cwd_sector) != NULL){
         perror("File already exists");
         return NULL;
     }
 
-    FAT_FCB *new = find_free_slot();
+    FAT_FCB *new = find_free_slot(disk->cwd_sector);
 
     if (new == NULL){
         perror("Directory is full");
@@ -220,21 +244,19 @@ FAT_Fd *fat_createfile(const char *filename)
     disk->fat[new_first_sector] = FAT_EOC;
     new->first_sector = new_first_sector;
 
-    return new;
-
-    //TODO TBC
+    return FAT_SUCCESS;
     
 } 
 
-//================================================================
-//=============================== FCB routine operations
-//================================================================
+//============================================================================//
+//============================= FCB Routines =================================//
+//============================================================================//
 
-#define get_entries(a) ((FAT_FCB *)(disk->data + (a * SECTOR_SIZE)))
+#define get_entries(a) ((FAT_FCB *)(disk->data + ((a) * SECTOR_SIZE)))
 
-FAT_FCB *find_in_dir(const char *name) //Look for a file named name in the current dir
+FAT_FCB *find_in_dir(const char *name, uint32_t sector) //Look for a file named name in the current dir
 {
-    uint32_t current = disk->cwd_sector;
+    uint32_t current = sector;
 
     while(current != FAT_EOC && current != FAT_FREE){
         FAT_FCB *entries = get_entries(current);
@@ -258,9 +280,9 @@ FAT_FCB *find_in_dir(const char *name) //Look for a file named name in the curre
 
 }
 
-FAT_FCB *find_free_slot() //Starting from the current location, look for empty space in sectors
+FAT_FCB *find_free_slot(uint32_t sector) //Starting from the current location, look for empty space in sectors
 {
-    uint32_t current = disk->cwd_sector;
+    uint32_t current = sector;
 
     while(current != FAT_EOC && current != FAT_FREE){
         FAT_FCB *entries = get_entries(current);
@@ -278,9 +300,9 @@ FAT_FCB *find_free_slot() //Starting from the current location, look for empty s
 
 }
 
-//================================================================
-//=============================== Sector chains routine operations
-//================================================================
+//============================================================================//
+//============================ Sector routines ===============================//
+//============================================================================//
 
 int chain_append(uint32_t a, uint32_t b)
 {
@@ -379,6 +401,10 @@ uint32_t get_free_sector()
 
 }
 
+//============================================================================//
+//================================== IDK =====================================//
+//============================================================================//
+
 int get_num_sectors(int data_size)
 {
     return data_size/SECTOR_SIZE;
@@ -394,3 +420,55 @@ int get_total_disk_size(int fat_size, int data_size)
     return fat_size + data_size + sizeof(FAT_Superblock);
 }
 
+
+//============================================================================//
+//========================= Path related string management ===================//
+//============================================================================//
+uint32_t fat_resolve_path(const char *path)
+{
+    // If given path is empty we remain where we are
+    if (path == NULL || strlen(path) == 0) return disk->cwd_sector;
+
+    // We save a copy of the string since strtok modifies it
+    char path_copy[256];
+    strncpy(path_copy, path, 256);
+
+    // The starting point
+    uint32_t current_sector = disk->cwd_sector; 
+    if (path_copy[0] == '/') {
+        current_sector = 0; // This means we have an absolute path so we start from root
+    }
+
+    // We break the path into a token list. Every token in order is the directory where we have to move first
+    char *token = strtok(path_copy, "/");
+    
+    while (token != NULL)
+    {
+        // 
+        FAT_FCB *found = find_in_dir(token, current_sector);
+        
+        if (found == NULL) {
+            perror("Folder not found");
+            return FAT_ERR_GENERIC;
+        }
+
+        // Checking if it actually is a directory and not a file
+        if (found->is_dir == 0) {
+            return FAT_ERR_GENERIC; 
+        }
+
+        // We go on to the next sector
+        current_sector = found->first_sector;
+
+        token = strtok(NULL, "/"); // Remember that strtok ""saves its state""
+    }
+
+    return current_sector;
+}
+
+int update_cwd_path(const char *path)
+{
+    if (path == NULL) return FAT_ERR_GENERIC;
+
+    //TODO
+}
