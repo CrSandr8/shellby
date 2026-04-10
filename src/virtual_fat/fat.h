@@ -33,6 +33,7 @@ int chain_cut(uint32_t first_sector, int size);
 uint32_t get_free_sector(void);
 
 #define get_next_sector(a) (disk->fat[(a)])
+#define get_entries(a) ((FAT_FCB *)(disk->data + ((a) * SECTOR_SIZE)))
 
 int get_num_sectors(int data_size);
 int get_fat_size(int num_sectors);

@@ -272,7 +272,6 @@ int fat_createfile(const char *filename)
 //============================= FCB Routines =================================//
 //============================================================================//
 
-#define get_entries(a) ((FAT_FCB *)(disk->data + ((a) * SECTOR_SIZE)))
 
 FAT_FCB *find_in_dir(const char *name, uint32_t sector) // Look for a file named name in the current dir
 {
@@ -519,5 +518,5 @@ int update_cwd_path(const char *path)
     }
 
     return FAT_SUCCESS;
-    
+
 }

@@ -77,6 +77,4 @@ typedef struct
 
 } FAT_Disk;
 
-extern FAT_Disk *disk;
-
 #endif

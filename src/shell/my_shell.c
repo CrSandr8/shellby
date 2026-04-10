@@ -34,6 +34,12 @@ void get_cmd_line(char *argv[MAX_TOKENS], int *argc)
 {
     char line[MAX_LINE];
     fgets(line, MAX_LINE, stdin);
+    if (fgets(line, MAX_LINE, stdin) == NULL) {
+        *argc = 0;
+        argv[0] = NULL;
+        printf("\n"); 
+        exit(0);
+    }
     char *token = strtok(line, " \t\n");
     *argc = 0;
     while (*argc < MAX_TOKENS && token != NULL)
@@ -96,7 +102,7 @@ int cmd_append(int argc, char **argv)
 
 // Safely close everything
 
-int cmd_shell_close(int argc, char **argv)
+int cmd_close(int argc, char **argv)
 {
     return 0;
 }
