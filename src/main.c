@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "virtual_fat/fat.h"
 #include "shell/my_shell.h"
 

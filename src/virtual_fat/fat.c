@@ -1,3 +1,11 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "fat.h"
 
 FAT_Disk *disk = NULL;
@@ -106,6 +114,7 @@ int fat_mount(const char *disk_path)
 
     // We now may be using a rightful disk file
 
+    disk->sb = sb;
     disk->fat = (uint32_t *)((uint8_t *)disk->disk_base + sizeof(FAT_Superblock));
     disk->data = (uint8_t *)((uint8_t *)disk->disk_base + sizeof(FAT_Superblock) + disk->sb->FATSz);
 
@@ -176,7 +185,8 @@ int fat_createdir(const char *name)
     if (new_first_sector == FAT_ERR_DISK_FULL)
     {
         perror("No more disk space for directory");
-        return FAT_ERR_DISK_FULL; // Restituisce un int, non NULL
+        return FAT_ERR_DISK_FULL;
+
     }
 
     strcpy(new->name, name);
@@ -199,7 +209,6 @@ int fat_createdir(const char *name)
 
     return FAT_SUCCESS;
 
-    // TODO TBC
 }
 
 int fat_rmdir(const char *path)
@@ -240,14 +249,14 @@ int fat_createfile(const char *filename)
     if (new == NULL)
     {
         perror("Current directory is full");
-        return FAT_ERR_GENERIC; // Restituisce un int, non NULL
+        return FAT_ERR_GENERIC;
     }
 
     uint32_t new_first_sector = get_free_sector();
     if (new_first_sector == FAT_ERR_DISK_FULL)
     {
         perror("No more disk space for file");
-        return FAT_ERR_DISK_FULL; // Restituisce un int, non NULL
+        return FAT_ERR_DISK_FULL;
     }
 
     strcpy(new->name, filename);
@@ -392,8 +401,8 @@ uint32_t get_free_sector()
     uint32_t start = disk->sb->FSI_Nxt_Free;
 
     // Start from nxtfree, we just iterate untile we find
-    uint32_t i;                                        // 'i' è già uint32_t
-    uint32_t max = disk->sb->FATSz / sizeof(uint32_t); // 'max' dovrebbe essere uint32_t
+    uint32_t i;                                        
+    uint32_t max = disk->sb->FATSz / sizeof(uint32_t);
 
     for (i = start; i < max; i++)
     {
@@ -416,6 +425,7 @@ uint32_t get_free_sector()
 
     // DISK FULL
     return FAT_ERR_DISK_FULL;
+
 }
 
 //============================================================================//
@@ -425,16 +435,19 @@ uint32_t get_free_sector()
 int get_num_sectors(int data_size)
 {
     return data_size / SECTOR_SIZE;
+
 }
 
 int get_fat_size(int num_sectors)
 {
     return num_sectors * sizeof(uint32_t);
+
 }
 
 int get_total_disk_size(int fat_size, int data_size)
 {
     return fat_size + data_size + sizeof(FAT_Superblock);
+
 }
 
 //============================================================================//
@@ -484,6 +497,7 @@ uint32_t fat_resolve_path(const char *path)
     }
 
     return current_sector;
+
 }
 
 int update_cwd_path(const char *path)
@@ -505,4 +519,5 @@ int update_cwd_path(const char *path)
     }
 
     return FAT_SUCCESS;
+    
 }

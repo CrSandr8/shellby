@@ -24,7 +24,7 @@
 
 // Dimensional values used
 #define SECTOR_SIZE 512 // bytes
-#define ENTRIES_PER_SEC SECTOR_SIZE / 32
+#define ENTRIES_PER_SEC (SECTOR_SIZE / 32)
 
 #define MAX_OPEN_FILES 12
 
@@ -33,8 +33,8 @@
 typedef struct
 {
     uint16_t Signature;
-    uint16_t BytsPerSec;     // Sector size in unit of byte  This value may take on only the following values: 512, 1024, 2048 or 4096
-    uint32_t FATSz;          // Size of the FAT.
+    uint16_t BytsPerSec;     // Sector size in bytes
+    uint32_t FATSz;          // Size of the FAT in bytes
     uint32_t RootSec;        // First sector number of root directory
     uint32_t FSI_Free_Count; // Last known free sector count
     uint32_t FSI_Nxt_Free;   // The offset of a hinted free block
@@ -44,7 +44,7 @@ typedef struct
 
 typedef struct
 {
-    uint8_t name[23];      // name always has 22 chars
+    uint8_t name[23];      // name always has fixed length
     uint32_t first_sector; // first sector index
     uint8_t is_dir;        // is this a directory?
     uint32_t file_size;

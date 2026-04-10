@@ -2,16 +2,8 @@
 #define _FAT_H
 
 #include "fat_structs.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-extern FAT_Disk *disk; // Dichiarazione della variabile globale disk
+extern FAT_Disk *disk;
 
 //============================================================================//
 //============================== Disk Manipulation ===========================//
@@ -31,8 +23,6 @@ int fat_createfile(const char *filename);
 //============================================================================//
 //============================= Backend Routines =============================//
 //============================================================================//
-// Inserire qui i prototipi evita i warning del compilatore per le funzioni 
-// che si chiamano a vicenda all'interno di fat.c
 
 FAT_FCB *find_in_dir(const char *name, uint32_t sector);
 FAT_FCB *find_free_slot(uint32_t sector);

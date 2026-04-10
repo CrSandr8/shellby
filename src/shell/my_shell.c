@@ -1,4 +1,8 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "my_shell.h"
+
 
 cmd_t cmd_table[] = {
     {"format", cmd_format, "format file as a shellby fs file with the given size"},
@@ -78,20 +82,23 @@ int do_shell(const char *prompt)
 
 // Print file rows as raw text
 
-int cat(const char *filename)
+int cmd_cat(int argc, char **argv)
 {
+    return 0;
 }
 
 // Append the inserted text to the selected file
 
-int append(const char *filename, const char *text)
+int cmd_append(int argc, char **argv)
 {
+    return 0;
 }
 
 // Safely close everything
 
-int shell_close()
+int cmd_shell_close(int argc, char **argv)
 {
+    return 0;
 }
 
 // === COMANDI IMPLEMENTATI ===
@@ -103,7 +110,7 @@ int cmd_format(int argc, char **argv)
         printf("Uso: format <nome_disco.img> <dimensione_in_byte>\n");
         return -1;
     }
-    // Passiamo i parametri alla tua funzione di backend
+    
     return fat_create_disk(argv[1], atoi(argv[2]));
 }
 
@@ -129,7 +136,7 @@ int cmd_touch(int argc, char **argv)
 
 int cmd_cd(int argc, char **argv)
 {
-    // Se scriviamo solo 'cd', di solito si torna alla root
+    // If we only write "cd" we go to root folder
     if (argc < 2)
     {
         return fat_change_dir("/");
