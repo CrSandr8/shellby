@@ -1,224 +1,157 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include "my_shell.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
+// Assicurati che il percorso dell'header sia corretto in base alle tue cartelle
+#include "virtual_fat/fat.h" 
 
-shell_state_t current_state = SHELL_STATE_UNMOUNTED;
+#define MAX_LINE    2048
+#define MAX_TOKENS  256
 
-
-cmd_t cmd_table[] = {
-
-
-    {"init", cmd_init, "create a new directory", SHELL_STATE_UNMOUNTED},
-    {"mount", cmd_mount, "create a new directory", SHELL_STATE_UNMOUNTED},
-    
-    {"mkdir", cmd_mkdir, "create a new directory", SHELL_STATE_MOUNTED},
-    {"cd", cmd_cd, "change current working directory", SHELL_STATE_MOUNTED},
-    {"touch", cmd_touch, "create a file", SHELL_STATE_MOUNTED},
-    {"cat", cmd_cat, "print the content of a file", SHELL_STATE_MOUNTED},
-    {"ls", cmd_ls, "list entries in this directory", SHELL_STATE_MOUNTED},
-    {"append", cmd_append, "append text to a file", SHELL_STATE_MOUNTED},
-    {"rm", cmd_rm, "remove a file or directory", SHELL_STATE_MOUNTED},
-    {NULL, NULL, NULL}};
-
-void deallocate_cmd(char *argv[MAX_TOKENS])
-{
-    while (*argv != NULL)
-        free(*argv++);
+void listCommands(){
+    printf("\nlscmd:\t\t\t lista i compandi disponibili\n");
+    printf("\nhelp_ext command:\t stampa il comando \"command\" e una sua descrizione\n");
+    printf("\ninit (filename | NULL):\t inizializza il filesystem (default size 1MB)\n\t\t\tse filename non viene inserito verra' assunto 'filesystem.img'\n");
+    printf("\nload (filename | NULL):\t carica il filesystem da filename\n\t\t\tse filename non viene inserito verra' assunto 'filesystem.img'\n");
+    printf("\nmkfile file_name:\t crea il file file_name\n");
+    printf("\nmkdir dir_name:\t\t crea la directory dir_name\n");
+    printf("\ncd dir_name:\t\t cambia la directory corrente\n");
+    printf("\nexit:\t\t\t esci dal programma (e smonta il disco)\n");
+    printf("\n(Comandi come ls, read, write e rm non sono ancora supportati dal backend)\n");
 }
 
-char *dup_string(const char *in)
-{
+void help_ext(char* cmd){
+    if (strcmp(cmd, "") == 0) {
+        printf("help_ext command: stampa il comando \"command\" e una sua descrizione\n");
+    } else if(strcmp(cmd, "init") == 0) {
+        printf("init filename: inizializza il filesystem dadogli il nome filename\n");
+    } else if(strcmp(cmd, "mount") == 0) {
+        printf("load filename: carica il filesystem da filename\n");
+    } else if(strcmp(cmd, "lscmd") == 0) {
+        listCommands();
+    } else if(strcmp(cmd, "touch") == 0) {
+        printf("mkfile file_name: crea il file file_name\n");
+    } else if (strcmp(cmd, "mkdir") == 0) {
+        printf("mkdir dir_name: crea la directory dir_name\n");
+    } else if (strcmp(cmd, "cd") == 0) {
+        printf("cd dir_name: cambia la directory corrente\n");
+    }else{
+        printf("Comando per help non trovato o non supportato.\n");
+    }
+    return;
+}
+
+void do_cmd(char* argv[MAX_TOKENS], int argc) {
+    /* HELP COMMANDS */
+    if (strcmp(argv[0], "help_ext") == 0) {
+        if (argv[1] == NULL) {
+            help_ext("");
+        } else {
+            help_ext(argv[1]);
+        }
+    } else if (strcmp(argv[0], "lscmd") == 0) {
+        listCommands();
+    
+    /* FS COMMANDS */
+    } else if (strcmp(argv[0], "init") == 0) {
+        // Usiamo una dimensione fissa di 1MB (1048576 byte) se si usa questo comando stile legacy
+        char *filename = (argv[1] == NULL) ? "filesystem.img" : argv[1];
+        fat_create_disk(filename, 1048576); 
+    } else if (strcmp(argv[0], "mount") == 0) {
+        char *filename = (argv[1] == NULL) ? "filesystem.img" : argv[1];
+        fat_mount(filename);
+
+    /* FILES COMMANDS */
+    } else if(strcmp(argv[0], "touch") == 0) {
+        if(argv[1] == NULL){
+            printf("mkfile file_name: crea il file file_name\n");
+            return;
+        }
+        fat_createfile(argv[1]);
+        
+    /* DIRECTORY COMMANDS */
+    } else if (strcmp(argv[0], "mkdir") == 0) {
+        if(argv[1] == NULL){
+            printf("mkdir dir_name: creates a directory\n");
+            return;
+        }
+        fat_createdir(argv[1]);
+    } else if (strcmp(argv[0], "rmdir") == 0) {
+        if(argv[1] == NULL){
+            printf("rmdir dir_name: elimina la directory e tutto il suo contenuto \n");
+            return;
+        }
+        fat_rmdir(argv[1]); // Questa attualmente e' vuota nel backend, ma compila!
+    } else if (strcmp(argv[0], "cd") == 0) {
+        if(argv[1] == NULL){
+            // Senza argomenti andiamo in root
+            fat_change_dir("/");
+            return;
+        }
+        fat_change_dir(argv[1]);
+        
+    /* COMANDI DA IMPLEMENTARE NEL BACKEND */
+    } else if (strcmp(argv[0], "rmfile") == 0 || strcmp(argv[0], "write") == 0 || 
+               strcmp(argv[0], "read") == 0 || strcmp(argv[0], "seek") == 0 || 
+               strcmp(argv[0], "ls") == 0) {
+        printf("Backend: Il comando '%s' non e' ancora implementato in fat.c.\n", argv[0]);
+
+    /* EXIT COMMAND */
+    } else if (strcmp(argv[0], "exit") == 0 || strcmp(argv[0], "quit") == 0) {
+        // Smontiamo il disco in sicurezza prima di uscire
+        fat_unmount();
+        exit(0);
+    } else {
+        printf("unknown command %s\n", argv[0]);
+    }
+}
+
+void deallocate_cmd(char* argv[MAX_TOKENS]) {
+	while (*argv != NULL)
+		free(*argv++);
+}
+
+char* dup_string(const char* in) {
     size_t n = strlen(in);
-    char *out = malloc(n + 1);
+    char* out = malloc(n + 1);
     strcpy(out, in);
     return out;
 }
 
-void get_cmd_line(char *argv[MAX_TOKENS], int *argc)
-{
+void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
     char line[MAX_LINE];
-    fgets(line, MAX_LINE, stdin);
+    // Aggiunto controllo per evitare crash su Ctrl+D (EOF)
     if (fgets(line, MAX_LINE, stdin) == NULL) {
         *argc = 0;
         argv[0] = NULL;
-        printf("\n"); 
+        printf("\n");
+        fat_unmount(); // Salvataggio di sicurezza
         exit(0);
     }
-    char *token = strtok(line, " \t\n");
+    
+    char* token = strtok(line, " \t\n");
     *argc = 0;
-    while (*argc < MAX_TOKENS && token != NULL)
-    {
+    while (*argc < MAX_TOKENS && token != NULL) {
         argv[(*argc)++] = dup_string(token);
         token = strtok(NULL, " \t\n");
     }
     argv[*argc] = NULL;
 }
 
-int do_cmd(char *argv[MAX_TOKENS], int argc)
-{
-    if (argc == 0 || argv[0] == NULL)
-        return 0;
-
-    for (int i = 0; cmd_table[i].name != NULL; i++)
-    {
-        if (strcmp(argv[0], cmd_table[i].name) == 0)
-        {
-            if(current_state != cmd_table[i].required_state){
-                printf("Error: wrong shell state\n");
-                return -1;
-            }
-            return cmd_table[i].func(argc, argv);
-        }
-    }
-
-    printf("Shellby: command not found: %s\n", argv[0]);
-    return -1;
-}
-
-int do_shell(const char *prompt)
-{
-    printf("Welcome to Shellby!\n");
-    for (;;)
-    {
+int do_shell(const char* prompt){
+    printf("lscmd: lists the available commands\n");
+    for (;;) {
         printf("%s", prompt);
-        char *argv[MAX_TOKENS];
+        char* argv[MAX_TOKENS];
         int argc = 0;
         get_cmd_line(argv, &argc);
-        if (argv[0] == NULL)
-            continue;
-        if (strcmp(argv[0], "quit") == 0)
-            break;
+        if (argv[0] == NULL) continue;
+        
         do_cmd(argv, argc);
-        deallocate_cmd(argv);
+	    deallocate_cmd(argv);
     }
     return EXIT_SUCCESS;
-}
-
-int cmd_init(int argc, char **argv)
-{
-    return 0;
-}
-int cmd_mount(int argc, char **argv)
-{
-    return 0;
-}
-
-// Print file rows as raw text
-
-int cmd_cat(int argc, char **argv)
-{
-    if (argc < 2)
-    {
-        printf("Uso: cat <nome_file>\n");
-        return -1;
-    }
-
-    char *file_content = fat_readfile(argv[1]);
-
-    if (file_content == NULL)
-    {
-        printf("cat: %s: File non trovato o è una directory\n", argv[1]);
-        return -1;
-    }
-
-    //Print the result
-    printf("%s\n", file_content);
-
-    free(file_content);
-
-    return 0;
-}
-
-// Append the inserted text to the selected file
-
-int cmd_append(int argc, char **argv)
-{
-    if (argc < 2)
-    {
-        printf("Uso: append <nome_file> stringa/testo \n");
-        return -1;
-    }
-
-    // Il comando "snello" che avevi in mente:
-    //char *file_content = fat_append(argv[1]);
-
-    //if (file_content == NULL)
-    //{
-    //    printf("cat: %s: File non trovato o è una directory\n", argv[1]);
-    //    return -1;
-    //}
-//
-    //// Stampa il risultato nudo e crudo
-    //printf("%s\n", file_content);
-//
-    //// Liberiamo la memoria allocata dal backend per il buffer
-    //free(file_content);
-
-    return 0;
-}
-
-// Safely close everything
-
-int cmd_close(int argc, char **argv)
-{
-    return 0;
-}
-
-// === COMANDI IMPLEMENTATI ===
-
-int cmd_format(int argc, char **argv)
-{
-    if (argc < 3)
-    {
-        printf("Uso: format <nome_disco.img> <dimensione_in_byte>\n");
-        return -1;
-    }
-    
-    return fat_create_disk(argv[1], atoi(argv[2]));
-}
-
-int cmd_mkdir(int argc, char **argv)
-{
-    if (argc < 2)
-    {
-        printf("Uso: mkdir <nome_cartella>\n");
-        return -1;
-    }
-    return fat_createdir(argv[1]);
-}
-
-int cmd_touch(int argc, char **argv)
-{
-    if (argc < 2)
-    {
-        printf("Uso: touch <nome_file>\n");
-        return -1;
-    }
-    return fat_createfile(argv[1]);
-}
-
-int cmd_cd(int argc, char **argv)
-{
-    // If we only write "cd" we go to root folder
-    if (argc < 2)
-    {
-        return fat_change_dir("/");
-    }
-    return fat_change_dir(argv[1]);
-}
-
-// === COMANDI ANCORA DA IMPLEMENTARE (per non far fallire la compilazione) ===
-
-int cmd_ls(int argc, char **argv)
-{
-    printf("Comando ls ancora da implementare nel backend.\n");
-    return 0;
-}
-
-int cmd_rm(int argc, char **argv)
-{
-    printf("Comando rm ancora da implementare nel backend.\n");
-    return 0;
 }
