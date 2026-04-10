@@ -7,12 +7,18 @@
 #define MAX_LINE    1024
 #define MAX_TOKENS  64
 
+typedef enum{
+    SHELL_STATE_UNMOUNTED, //When we start the app
+    SHELL_STATE_MOUNTED,  //After we have mounted a (virtual) disk
+} shell_state_t;
+
 typedef int (*cmd_func_t)(int argc, char **argv);
 
 typedef struct {
     char *name;
     cmd_func_t func;
     char *help;
+    shell_state_t required_state; //A command can be executed only in his shell state
 } cmd_t;
 
 void deallocate_cmd(char* argv[MAX_TOKENS]);

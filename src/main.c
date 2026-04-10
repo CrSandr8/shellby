@@ -14,11 +14,6 @@ int main(int argc, char **argv) {
 
     // 2. Inizializziamo a zero per sicurezza
     memset(disk, 0, sizeof(FAT_Disk));
-
-    // 3. Avviamo la shell!
-    do_shell("shellby"); // La stringa qui non è più così importante, vedi il punto 2
-
-    // 4. Pulizia finale
-    free(disk);
-    return 0;
+    
+    return do_shell("shellby: $ ");
 }

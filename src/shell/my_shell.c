@@ -4,16 +4,22 @@
 #include "my_shell.h"
 
 
+shell_state_t current_state = SHELL_STATE_UNMOUNTED;
+
+
 cmd_t cmd_table[] = {
-    {"format", cmd_format, "format file as a shellby fs file with the given size"},
-    {"mkdir", cmd_mkdir, ""},
-    {"cd", cmd_cd, ""},
-    {"touch", cmd_touch, ""},
-    {"cat", cmd_cat, ""},
-    {"ls", cmd_ls, ""},
-    {"append", cmd_append, ""},
-    {"rm", cmd_rm, ""},
-    {"close", cmd_close, ""},
+
+
+    {"init", cmd_init, "create a new directory", SHELL_STATE_UNMOUNTED},
+    {"mount", cmd_mount, "create a new directory", SHELL_STATE_UNMOUNTED},
+    
+    {"mkdir", cmd_mkdir, "create a new directory", SHELL_STATE_MOUNTED},
+    {"cd", cmd_cd, "change current working directory", SHELL_STATE_MOUNTED},
+    {"touch", cmd_touch, "create a file", SHELL_STATE_MOUNTED},
+    {"cat", cmd_cat, "print the content of a file", SHELL_STATE_MOUNTED},
+    {"ls", cmd_ls, "list entries in this directory", SHELL_STATE_MOUNTED},
+    {"append", cmd_append, "append text to a file", SHELL_STATE_MOUNTED},
+    {"rm", cmd_rm, "remove a file or directory", SHELL_STATE_MOUNTED},
     {NULL, NULL, NULL}};
 
 void deallocate_cmd(char *argv[MAX_TOKENS])
@@ -59,6 +65,10 @@ int do_cmd(char *argv[MAX_TOKENS], int argc)
     {
         if (strcmp(argv[0], cmd_table[i].name) == 0)
         {
+            if(current_state != cmd_table[i].required_state){
+                printf("Error: wrong shell state\n");
+                return -1;
+            }
             return cmd_table[i].func(argc, argv);
         }
     }
@@ -69,7 +79,7 @@ int do_cmd(char *argv[MAX_TOKENS], int argc)
 
 int do_shell(const char *prompt)
 {
-    printf("lscmd: lists the available commands\n");
+    printf("Welcome to Shellby!\n");
     for (;;)
     {
         printf("%s", prompt);
@@ -86,10 +96,38 @@ int do_shell(const char *prompt)
     return EXIT_SUCCESS;
 }
 
+int cmd_init(int argc, char **argv)
+{
+    return 0;
+}
+int cmd_mount(int argc, char **argv)
+{
+    return 0;
+}
+
 // Print file rows as raw text
 
 int cmd_cat(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printf("Uso: cat <nome_file>\n");
+        return -1;
+    }
+
+    char *file_content = fat_readfile(argv[1]);
+
+    if (file_content == NULL)
+    {
+        printf("cat: %s: File non trovato o è una directory\n", argv[1]);
+        return -1;
+    }
+
+    //Print the result
+    printf("%s\n", file_content);
+
+    free(file_content);
+
     return 0;
 }
 
@@ -97,6 +135,27 @@ int cmd_cat(int argc, char **argv)
 
 int cmd_append(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printf("Uso: append <nome_file> stringa/testo \n");
+        return -1;
+    }
+
+    // Il comando "snello" che avevi in mente:
+    //char *file_content = fat_append(argv[1]);
+
+    //if (file_content == NULL)
+    //{
+    //    printf("cat: %s: File non trovato o è una directory\n", argv[1]);
+    //    return -1;
+    //}
+//
+    //// Stampa il risultato nudo e crudo
+    //printf("%s\n", file_content);
+//
+    //// Liberiamo la memoria allocata dal backend per il buffer
+    //free(file_content);
+
     return 0;
 }
 
