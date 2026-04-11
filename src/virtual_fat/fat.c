@@ -216,6 +216,32 @@ int fat_createdir(const char *name)
 
 }
 
+int fat_readdir(uint32_t dir_sector) 
+{
+    // Checking if input sector is valid
+    if (dir_sector == 0 || dir_sector == FAT_EOC) {
+        return FAT_ERR_GENERIC; 
+    }
+
+    uint32_t cursor = 0;
+    FAT_FCB current_file; 
+    uint32_t file_count = 0;
+
+    printf("\nNAME                 SIZE\n");
+    printf("-------------------------------\n");
+
+    // We cycle from here
+    while (fat_read_dir_next(dir_sector, &cursor, &current_file)) {
+        printf("%-20s %8u B\n", current_file.name, current_file.file_size);
+        file_count++;
+    }
+
+    printf("-------------------------------\n");
+    printf("Total: %u elements.\n\n", file_count);
+
+    return FAT_SUCCESS; 
+}
+
 int fat_rmdir(const char *path)
 {
 }
@@ -367,7 +393,10 @@ int fat_writefile(const char *filename, const char *text, int append)
 
 }
 
+int fat_rmfile(const char *filename)
+{
 
+}
 
 //============================================================================//
 //============================= FCB Routines =================================//
@@ -420,6 +449,41 @@ FAT_FCB *find_free_slot(uint32_t sector) // Starting from the current location, 
     }
 
     return NULL;
+}
+
+FAT_FCB *read_dir_next(uint32_t dir_sector, uint32_t *cursor)
+{
+    while(1){
+
+        uint32_t sectors_to_skip = *cursor / ENTRIES_PER_SEC;
+        
+        uint32_t in_sector_offset = *cursor % ENTRIES_PER_SEC;
+
+        uint32_t current = dir_sector;
+
+        for (uint32_t i = 0; i < sectors_to_skip; i++){
+            current = get_next_sector(current);
+
+            if (current == FAT_EOC){
+                return NULL;
+            }
+        
+        }
+
+        FAT_FCB *entries = get_entries(current);
+
+        FAT_FCB *result = &entries[in_sector_offset];
+
+        if (result->name[0] == '\0'){
+
+            (*cursor)++;
+            continue;
+        }
+
+        (*cursor)++;
+
+        return result;
+    }
 }
 
 //============================================================================//
