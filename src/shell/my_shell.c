@@ -15,8 +15,8 @@ void listCommands(){
     printf("\nlscmd:\t\t\t lista i compandi disponibili\n");
     printf("\nhelp_ext command:\t stampa il comando \"command\" e una sua descrizione\n");
     printf("\ninit (filename | NULL):\t inizializza il filesystem (default size 1MB)\n\t\t\tse filename non viene inserito verra' assunto 'filesystem.img'\n");
-    printf("\nload (filename | NULL):\t carica il filesystem da filename\n\t\t\tse filename non viene inserito verra' assunto 'filesystem.img'\n");
-    printf("\nmkfile file_name:\t crea il file file_name\n");
+    printf("\nmount (filename | NULL):\t carica il filesystem da filename\n\t\t\tse filename non viene inserito verra' assunto 'filesystem.img'\n");
+    printf("\touch file_name:\t crea il file file_name\n");
     printf("\nmkdir dir_name:\t\t crea la directory dir_name\n");
     printf("\ncd dir_name:\t\t cambia la directory corrente\n");
     printf("\nexit:\t\t\t esci dal programma (e smonta il disco)\n");

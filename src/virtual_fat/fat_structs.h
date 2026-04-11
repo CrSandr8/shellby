@@ -26,8 +26,6 @@
 #define SECTOR_SIZE 512 // bytes
 #define ENTRIES_PER_SEC (SECTOR_SIZE / 32)
 
-#define MAX_OPEN_FILES 12
-
 // TODO add disk size selector/macro elsewhere
 
 typedef struct
@@ -53,15 +51,6 @@ typedef struct
 
 typedef struct
 {
-    uint8_t is_used;
-    uint32_t current_offset;
-    FAT_FCB cached_entry;
-    uint8_t padding[27];
-
-} __attribute__((packed)) FAT_Fd; // 64 bytes
-
-typedef struct
-{
     uint8_t disk_name[64];
     uint32_t disk_size;
 
@@ -69,8 +58,6 @@ typedef struct
     FAT_Superblock *sb;
     uint32_t *fat; // The actual File Allocation Table
     uint8_t *data; // The data region
-
-    //FAT_Fd open_files[MAX_OPEN_FILES];
 
     uint32_t cwd_sector;
     char cwd_path[256];

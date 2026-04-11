@@ -30,6 +30,7 @@ FAT_FCB *find_free_slot(uint32_t sector);
 int chain_append(uint32_t a, uint32_t b);
 int chain_rm(uint32_t first_sector);
 int chain_cut(uint32_t first_sector, int size);
+
 uint32_t get_free_sector(void);
 
 #define get_next_sector(a) (disk->fat[(a)])

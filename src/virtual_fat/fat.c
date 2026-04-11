@@ -177,8 +177,13 @@ int fat_createdir(const char *name)
 
     if (new == NULL)
     {
-        perror("Directory is full");
-        return FAT_ERR_GENERIC;
+        //perror("Directory is full");
+        //return FAT_ERR_GENERIC;
+        uint32_t extended_sector = get_free_sector();
+        chain_append(disk->cwd_sector, extended_sector);
+        FAT_FCB *extended_sector_ptr = get_entries(extended_sector);
+        memset(extended_sector_ptr, 0, SECTOR_SIZE);
+        new = &extended_sector_ptr[0];
     }
 
     uint32_t new_first_sector = get_free_sector();
@@ -241,15 +246,24 @@ int fat_createfile(const char *filename)
     if (find_in_dir(filename, disk->cwd_sector) != NULL)
     {
         perror("File already exists");
-        return NULL;
+        return FAT_ERR_GENERIC;
     }
 
     FAT_FCB *new = find_free_slot(disk->cwd_sector);
 
     if (new == NULL)
     {
-        perror("Current directory is full");
-        return FAT_ERR_GENERIC;
+        uint32_t extended_sector = get_free_sector();
+        if (extended_sector == FAT_ERR_DISK_FULL) {
+            perror("No more disk space to expand directory");
+            return FAT_ERR_DISK_FULL;
+        }
+
+        chain_append(disk->cwd_sector, extended_sector);
+        FAT_FCB *extended_sector_ptr = get_entries(extended_sector);
+        memset(extended_sector_ptr, 0, SECTOR_SIZE);
+        
+        new = &extended_sector_ptr[0];
     }
 
     uint32_t new_first_sector = get_free_sector();
@@ -272,6 +286,88 @@ int fat_readfile(const char *filename)
 {
     return 0;
 }
+
+int fat_writefile(const char *filename, const char *text, int append)
+{
+    if (append > 1 || append < 0){
+        perror("Invalid append flag");
+        return FAT_ERR_GENERIC;
+    }
+
+    //Checking if the file exists
+    FAT_FCB *this = find_in_dir(filename, disk->cwd_sector);
+    if (this == NULL){
+        perror("File not found");
+        return FAT_ERR_GENERIC;
+    }
+
+    uint32_t sector_start = this->first_sector; //The sector we start from
+    uint32_t offset_start = 0; //The offset we start from in sector_start
+
+    if (append == 0){
+
+        //Cleanup the file
+        this->file_size = 0;
+        uint32_t this_first_sector_copy = disk->fat[this->first_sector];
+        disk->fat[this->first_sector] = FAT_EOC;
+        chain_rm(this_first_sector_copy);
+
+        offset_start = 0;
+
+    }
+    else{
+
+        //We are in append mode
+        while(get_next_sector(sector_start) != FAT_EOC){
+            sector_start = get_next_sector(sector_start);
+            
+        }
+
+        offset_start = this->file_size % SECTOR_SIZE;
+    }
+
+    uint32_t to_write = strlen(text);   
+
+    while (to_write > 0){
+        //This is how many bytes we can write in the sector we are in right now
+        uint32_t writable = to_write > (SECTOR_SIZE - offset_start) ? SECTOR_SIZE - offset_start : to_write;
+
+        //strncpy((char *)get_entries(this->first_sector), text, writable);
+
+        //This is the actual writing moment
+        memcpy((char *)get_entries(sector_start) + offset_start, text, writable);
+
+        //Here we move the pointer forward
+        text += writable;
+
+        //Update the remaining bytes to write
+        to_write -= writable;
+
+        //And the file size
+        this->file_size += writable;
+
+        if(to_write > 0){
+            uint32_t new_sector = get_free_sector();
+
+            if (new_sector == FAT_ERR_DISK_FULL){
+                perror("No more disk space for file");
+                return FAT_ERR_DISK_FULL;
+            }
+
+            chain_append(sector_start, new_sector);
+            sector_start = new_sector;
+
+            //Reset the current offset in the sector
+            offset_start = 0;
+            
+        }
+    }
+
+    return FAT_SUCCESS;
+
+}
+
+
 
 //============================================================================//
 //============================= FCB Routines =================================//
