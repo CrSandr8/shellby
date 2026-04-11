@@ -12,7 +12,6 @@ cmd_t cmd_table[] = {
     {"help", cmd_help, "get help for usage", SHELL_STATE_UNMOUNTED},
     {"format", cmd_format, "create a new directory", SHELL_STATE_UNMOUNTED},
     {"mount", cmd_mount, "create a new directory", SHELL_STATE_UNMOUNTED},
-    {"close", cmd_close, "exit shellby", SHELL_STATE_UNMOUNTED},
     
     {"mkdir", cmd_mkdir, "create a new directory", SHELL_STATE_MOUNTED},
     {"cd", cmd_cd, "change current working directory", SHELL_STATE_MOUNTED},
@@ -75,6 +74,7 @@ int do_shell(const char* prompt_base) {
         int argc = 0;
         get_cmd_line(argv, &argc);
         if (argc > 0) {
+            if(strcmp(argv[0], "close") == 0) break;
             do_cmd(argv, argc);
             for(int i=0; i<argc; i++) free(argv[i]);
         }
@@ -137,12 +137,6 @@ int cmd_unmount(int argc, char **argv)
     return res;
 }
 
-int cmd_close(int argc, char **argv)
-{
-    return 0;
-}
-
-
 int cmd_mkdir(int argc, char **argv)
 {
     return fat_createdir(argv[1]);
@@ -175,5 +169,5 @@ int cmd_append(int argc, char **argv)
 
 int cmd_rm(int argc, char **argv)
 {
-    return fat_rmfile(argv[1]);
+    return fat_rm(argv[1]);
 }
