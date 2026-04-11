@@ -113,6 +113,8 @@ int fat_mount(const char *disk_path)
     }
 
     // We now may be using a rightful disk file
+    printf("Signature OK!\n");
+
 
     disk->sb = sb;
     disk->fat = (uint32_t *)((uint8_t *)disk->disk_base + sizeof(FAT_Superblock));
@@ -126,8 +128,11 @@ int fat_mount(const char *disk_path)
     //     disk->open_files[i].is_used = 0;
     //     disk->open_files[i].current_offset = 0;
     // }
+    
+    printf("[DEBUG] Disk mapped at address: %p\n", disk->disk_base);
+    printf("[DEBUG] FAT region starts at: %p\n", disk->fat);
+    printf("[DEBUG] Data region starts at: %p (Sector 0)\n", disk->data);
 
-    printf("Signature OK!\n");
 
     close(fd);
 
@@ -169,7 +174,7 @@ int fat_createdir(const char *name)
 {
     if (find_in_dir(name, disk->cwd_sector) != NULL)
     {
-        perror("Directory already exists");
+        fprintf(stderr, "Directory already exists");
         return FAT_ERR_GENERIC;
     }
 
@@ -189,7 +194,7 @@ int fat_createdir(const char *name)
     uint32_t new_first_sector = get_free_sector();
     if (new_first_sector == FAT_ERR_DISK_FULL)
     {
-        perror("No more disk space for directory");
+        fprintf(stderr, "No more disk space for directory");
         return FAT_ERR_DISK_FULL;
 
     }
@@ -219,20 +224,20 @@ int fat_createdir(const char *name)
 int fat_readdir(uint32_t dir_sector) 
 {
     // Checking if input sector is valid
-    if (dir_sector == 0 || dir_sector == FAT_EOC) {
+    if (dir_sector == FAT_EOC) {
         return FAT_ERR_GENERIC; 
     }
 
     uint32_t cursor = 0;
-    FAT_FCB current_file; 
+    FAT_FCB *current_file;
     uint32_t file_count = 0;
 
     printf("\nNAME                 SIZE\n");
     printf("-------------------------------\n");
 
     // We cycle from here
-    while (read_dir_next(dir_sector, &cursor)) {
-        printf("%-20s %8u B\n", current_file.name, current_file.file_size);
+    while ((current_file = read_dir_next(dir_sector, &cursor)) != NULL) {
+        printf("%-20s %8u B\n", current_file->name, current_file->file_size);
         file_count++;
     }
 
@@ -262,13 +267,13 @@ int fat_change_dir(const char *path)
 
     if (target == FAT_ERR_GENERIC)
     {
-        perror("Error: cannot resolve path");
+        fprintf(stderr, "Error: cannot resolve path\n");
         return FAT_ERR_GENERIC;
     }
 
     if (update_cwd_path(path) != FAT_SUCCESS)
     {
-        perror("Something went wrong while changing current path in shell");
+        fprintf(stderr, "Something went wrong while changing current path in shell\n");
         return FAT_ERR_GENERIC;
     }
 
@@ -281,7 +286,7 @@ int fat_createfile(const char *filename)
 {
     if (find_in_dir(filename, disk->cwd_sector) != NULL)
     {
-        perror("File already exists");
+        fprintf(stderr, "File already exists\n");
         return FAT_ERR_GENERIC;
     }
 
@@ -291,7 +296,7 @@ int fat_createfile(const char *filename)
     {
         uint32_t extended_sector = get_free_sector();
         if (extended_sector == FAT_ERR_DISK_FULL) {
-            perror("No more disk space to expand directory");
+            fprintf(stderr, "No more disk space to expand directory\n");
             return FAT_ERR_DISK_FULL;
         }
 
@@ -305,7 +310,7 @@ int fat_createfile(const char *filename)
     uint32_t new_first_sector = get_free_sector();
     if (new_first_sector == FAT_ERR_DISK_FULL)
     {
-        perror("No more disk space for file");
+        fprintf(stderr, "No more disk space for file\n");
         return FAT_ERR_DISK_FULL;
     }
 
@@ -323,7 +328,7 @@ int fat_readfile(const char *filename)
     FAT_FCB *this = find_in_dir(filename, disk->cwd_sector);
 
     if (this == NULL || this->is_dir == 1){
-        perror("The file has not been found or it is a directory");
+        fprintf(stderr, "The file has not been found or it is a directory\n");
         return FAT_ERR_GENERIC;
     }
 
@@ -334,7 +339,7 @@ int fat_readfile(const char *filename)
         uint32_t to_read_in_sector = to_read > SECTOR_SIZE ? SECTOR_SIZE : to_read;
 
         //
-        fwrite((char *)get_entries(current), 1, to_read, stdout);
+        fwrite((char *)get_entries(current), 1, to_read_in_sector, stdout);
 
         to_read -= to_read_in_sector;
         current = get_next_sector(current);
@@ -349,14 +354,14 @@ int fat_readfile(const char *filename)
 int fat_writefile(const char *filename, const char *text, int append)
 {
     if (append > 1 || append < 0){
-        perror("Invalid append flag");
+        fprintf(stderr, "Invalid append flag\n");
         return FAT_ERR_GENERIC;
     }
 
     //Checking if the file exists
     FAT_FCB *this = find_in_dir(filename, disk->cwd_sector);
     if (this == NULL){
-        perror("File not found");
+        fprintf(stderr, "File not found");
         return FAT_ERR_GENERIC;
     }
 
@@ -406,10 +411,11 @@ int fat_writefile(const char *filename, const char *text, int append)
         this->file_size += writable;
 
         if(to_write > 0){
+            printf("Writing %u bytes to sector %u (offset %u)...\n", writable, sector_start, offset_start);
             uint32_t new_sector = get_free_sector();
 
             if (new_sector == FAT_ERR_DISK_FULL){
-                perror("No more disk space for file");
+                fprintf(stderr, "No more disk space for file");
                 return FAT_ERR_DISK_FULL;
             }
 
@@ -449,7 +455,7 @@ FAT_FCB *find_in_dir(const char *name, uint32_t sector) // Look for a file named
 {
     uint32_t current = sector;
 
-    while (current != FAT_EOC && current != FAT_FREE)
+    while (current != FAT_EOC)
     {
         FAT_FCB *entries = get_entries(current);
 
@@ -475,7 +481,7 @@ FAT_FCB *find_free_slot(uint32_t sector) // Starting from the current location, 
 {
     uint32_t current = sector;
 
-    while (current != FAT_EOC && current != FAT_FREE)
+    while (current != FAT_EOC)
     {
         FAT_FCB *entries = get_entries(current);
 
@@ -518,6 +524,7 @@ FAT_FCB *read_dir_next(uint32_t dir_sector, uint32_t *cursor)
 
         if (result->name[0] == '\0'){
 
+            //printf("[DEBUG] Directory scan: found '%s' at cursor %u\n", result->name, *cursor);
             (*cursor)++;
             continue;
         }
@@ -614,6 +621,7 @@ uint32_t get_free_sector()
     {
         if (disk->fat[i] == FAT_FREE)
         {
+            printf("[DEBUG] Allocated free sector: %u\n", i);
             disk->sb->FSI_Nxt_Free = i + 1;
             return i;
         }
@@ -681,12 +689,13 @@ uint32_t fat_resolve_path(const char *path)
 
     while (token != NULL)
     {
+        printf("[DEBUG] Resolving token: '%s' in sector %u...\n", token, current_sector);
         //
         FAT_FCB *found = find_in_dir(token, current_sector);
 
         if (found == NULL)
         {
-            perror("Folder not found");
+            fprintf(stderr, "Folder not found");
             return FAT_ERR_GENERIC;
         }
 
