@@ -20,7 +20,7 @@ typedef struct {
 
 // Shell functions
 int do_shell(const char* prompt);
-void do_cmd(char* argv[MAX_TOKENS], int argc);
+int do_cmd(char* argv[MAX_TOKENS], int argc);
 void get_cmd_line(char* argv[MAX_TOKENS], int* argc);
 
 int cmd_help(int argc, char **argv);

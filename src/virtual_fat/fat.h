@@ -17,14 +17,13 @@ int fat_unmount(void);
 //================================ FS API ====================================//
 //============================================================================//
 int fat_createdir(const char *name);
-int fat_rmdir(const char *path);
 int fat_change_dir(const char *path);
 int fat_readdir(uint32_t dir_sector);
 
 int fat_createfile(const char *filename);
 int fat_readfile(const char *filename);
 int fat_writefile(const char *filename, const char *text, int append);
-int fat_rmfile(const char *filename);
+int fat_rm(const char *filename);
 
 //============================================================================//
 //============================= Backend Routines =============================//

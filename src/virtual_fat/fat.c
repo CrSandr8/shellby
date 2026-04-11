@@ -247,20 +247,6 @@ int fat_readdir(uint32_t dir_sector)
     return FAT_SUCCESS; 
 }
 
-int fat_rmdir(const char *path)
-{
-    // Placeholder for testing purposes
-    printf("[DEBUG] fat_rmdir called for path: '%s'\n", path);
-    
-    /* TODO: 
-       1. Resolve the path to find the directory FCB.
-       2. Check if the directory is empty (only '.' and '..' present).
-       3. Free the FAT chain and clear the FCB.
-    */
-
-    return FAT_SUCCESS;
-}
-
 int fat_change_dir(const char *path)
 {
     uint32_t target = fat_resolve_path(path);
@@ -432,7 +418,7 @@ int fat_writefile(const char *filename, const char *text, int append)
 
 }
 
-int fat_rmfile(const char *filename)
+int fat_rm(const char *filename)
 {
     // Placeholder for testing purposes
     printf("[DEBUG] fat_rmfile called for filename: '%s'\n", filename);
@@ -442,6 +428,25 @@ int fat_rmfile(const char *filename)
        2. Free the FAT chain using chain_rm.
        3. Mark the FCB as deleted (name[0] = '\0').
     */
+
+    FAT_FCB *found = find_in_dir(filename, disk->cwd_sector);
+
+    if (found == NULL){
+        fprintf(stderr, "Error: file not found\n");
+        return FAT_ERR_GENERIC;
+    }
+
+    //if(found->is_dir == 1){
+    //    if (get_entries(found))
+    //}
+
+    found->name[0] = '\0';
+    found->file_size = 0;
+
+    if (chain_rm(found->first_sector) == FAT_ERR_GENERIC){
+        fprintf(stderr, "Error while removing this file sector chain\n");
+        return FAT_ERR_GENERIC;
+    }
 
     return FAT_SUCCESS;
 }
