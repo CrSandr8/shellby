@@ -231,7 +231,7 @@ int fat_readdir(uint32_t dir_sector)
     printf("-------------------------------\n");
 
     // We cycle from here
-    while (fat_read_dir_next(dir_sector, &cursor, &current_file)) {
+    while (read_dir_next(dir_sector, &cursor)) {
         printf("%-20s %8u B\n", current_file.name, current_file.file_size);
         file_count++;
     }
@@ -244,6 +244,16 @@ int fat_readdir(uint32_t dir_sector)
 
 int fat_rmdir(const char *path)
 {
+    // Placeholder for testing purposes
+    printf("[DEBUG] fat_rmdir called for path: '%s'\n", path);
+    
+    /* TODO: 
+       1. Resolve the path to find the directory FCB.
+       2. Check if the directory is empty (only '.' and '..' present).
+       3. Free the FAT chain and clear the FCB.
+    */
+
+    return FAT_SUCCESS;
 }
 
 int fat_change_dir(const char *path)
@@ -310,7 +320,30 @@ int fat_createfile(const char *filename)
 
 int fat_readfile(const char *filename)
 {
-    return 0;
+    FAT_FCB *this = find_in_dir(filename, disk->cwd_sector);
+
+    if (this == NULL || this->is_dir == 1){
+        perror("The file has not been found or it is a directory");
+        return FAT_ERR_GENERIC;
+    }
+
+    uint32_t current = this->first_sector;
+    uint32_t to_read = this->file_size; //This is the bytes left to read
+
+    while(current != FAT_EOC && to_read > 0){
+        uint32_t to_read_in_sector = to_read > SECTOR_SIZE ? SECTOR_SIZE : to_read;
+
+        //
+        fwrite((char *)get_entries(current), 1, to_read, stdout);
+
+        to_read -= to_read_in_sector;
+        current = get_next_sector(current);
+
+    }
+
+    printf("\n");
+    return FAT_SUCCESS;
+    
 }
 
 int fat_writefile(const char *filename, const char *text, int append)
@@ -395,7 +428,16 @@ int fat_writefile(const char *filename, const char *text, int append)
 
 int fat_rmfile(const char *filename)
 {
+    // Placeholder for testing purposes
+    printf("[DEBUG] fat_rmfile called for filename: '%s'\n", filename);
 
+    /* TODO: 
+       1. Find the file in the current directory.
+       2. Free the FAT chain using chain_rm.
+       3. Mark the FCB as deleted (name[0] = '\0').
+    */
+
+    return FAT_SUCCESS;
 }
 
 //============================================================================//
@@ -670,7 +712,14 @@ int update_cwd_path(const char *path)
         return FAT_ERR_GENERIC;
 
     char temp[256];
-    strcpy(temp, path[0] == '/' ? "/" : disk->cwd_path);
+    
+    // If the path is absolute, start from the root.
+    // Otherwise, start from the current working directory string.
+    if (path[0] == '/') {
+        strcpy(temp, "/");
+    } else {
+        strcpy(temp, disk->cwd_path);
+    }
 
     char path_copy[256];
     strncpy(path_copy, path, 255);
@@ -679,9 +728,42 @@ int update_cwd_path(const char *path)
     char *token = strtok(path_copy, "/");
     while (token != NULL)
     {
-        // TODO
+        if (strcmp(token, ".") == 0) {
+            // Current directory reference: do nothing.
+        } 
+        else if (strcmp(token, "..") == 0) {
+            // Parent directory reference: move one level up.
+            if (strcmp(temp, "/") != 0) {
+                // Locate the last slash to truncate the path string.
+                char *last_slash = strrchr(temp, '/');
+                if (last_slash == temp) {
+                    // We are just one level below root (e.g., "/dir").
+                    // Truncate right after the leading slash.
+                    *(last_slash + 1) = '\0';
+                } else {
+                    // Truncate at the slash location.
+                    *last_slash = '\0';
+                }
+            }
+        } 
+        else {
+            // Directory name: append it to the path string.
+            int len = strlen(temp);
+            
+            // Add a separator slash if we are not at the root "/".
+            if (temp[len - 1] != '/') {
+                strcat(temp, "/");
+            }
+            
+            strcat(temp, token);
+        }
+
+        token = strtok(NULL, "/");
     }
 
-    return FAT_SUCCESS;
+    // Update the actual CWD path in the disk structure.
+    strncpy(disk->cwd_path, temp, 255);
+    disk->cwd_path[255] = '\0';
 
+    return FAT_SUCCESS;
 }

@@ -19,6 +19,8 @@ int fat_createdir(const char *name);
 int fat_rmdir(const char *path);
 int fat_change_dir(const char *path);
 int fat_createfile(const char *filename);
+int fat_readdir(uint32_t dir_sector);
+
 
 //============================================================================//
 //============================= Backend Routines =============================//
@@ -26,6 +28,7 @@ int fat_createfile(const char *filename);
 
 FAT_FCB *find_in_dir(const char *name, uint32_t sector);
 FAT_FCB *find_free_slot(uint32_t sector);
+FAT_FCB *read_dir_next(uint32_t dir_sector, uint32_t *cursor);
 
 int chain_append(uint32_t a, uint32_t b);
 int chain_rm(uint32_t first_sector);
