@@ -169,5 +169,22 @@ int cmd_append(int argc, char **argv)
 
 int cmd_rm(int argc, char **argv)
 {
-    return fat_rm(argv[1]);
+    int opt;
+    int flag = 0;
+
+    optind = 1;
+
+    while ((opt = getopt(argc, argv, "r")) != -1){
+        if (opt == 'r') flag = 1;
+        else return -1;
+    }
+
+    if (optind >= argc){
+        fprintf(stderr, "Err");
+        return -1;
+    }
+
+    char *arg = argv[optind];
+
+    return fat_rm(arg, flag);
 }

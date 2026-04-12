@@ -5,6 +5,8 @@
 
 // Global pointer to the mapped disk structure
 extern FAT_Disk *disk;
+extern int optind; //this 
+
 
 //============================================================================//
 //============================== Disk Manipulation ===========================//
@@ -23,7 +25,7 @@ int fat_readdir(uint32_t dir_sector);
 int fat_createfile(const char *filename);
 int fat_readfile(const char *filename);
 int fat_writefile(const char *filename, const char *text, int append);
-int fat_rm(const char *filename);
+int fat_rm(const char *filename, int flag_recursive);
 
 //============================================================================//
 //============================= Backend Routines =============================//
@@ -36,6 +38,7 @@ FAT_FCB *read_dir_next(uint32_t dir_sector, uint32_t *cursor);
 int chain_append(uint32_t a, uint32_t b);
 int chain_rm(uint32_t first_sector);
 int chain_cut(uint32_t first_sector, int size);
+int rm_recursive(uint32_t folder_sector);
 
 uint32_t get_free_sector(void);
 

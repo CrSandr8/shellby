@@ -425,7 +425,7 @@ int fat_writefile(const char *filename, const char *text, int append)
     return FAT_SUCCESS;
 }
 
-int fat_rm(const char *filename)
+int fat_rm(const char *filename, int flag_recursive)
 {
     // Placeholder for testing purposes
     printf("[DEBUG] fat_rm called for filename: '%s'\n", filename);
@@ -446,14 +446,20 @@ int fat_rm(const char *filename)
 
     if (found->is_dir == 1)
     {
-        uint32_t cursor = 0;
-        uint32_t current = found->first_sector;
-        FAT_FCB *temp;
-        while((temp = read_dir_next(current, &cursor)) != NULL){
-            if ((strcmp(temp->name, ".") != 0) && (strcmp(temp->name, "..") != 0))
-            {
-                fprintf(stderr, "Error: tried to remove a folder that is not empty\n");
-                return FAT_ERR_GENERIC;
+        if (flag_recursive == 1){
+            rm_recursive(found->first_sector);
+        }
+        else{
+            uint32_t cursor = 0;
+            uint32_t current = found->first_sector;
+            FAT_FCB *temp;
+            while((temp = read_dir_next(current, &cursor)) != NULL){
+                if ((strcmp(temp->name, ".") != 0) && (strcmp(temp->name, "..") != 0))
+                {
+                    fprintf(stderr, "Error: tried to remove a folder that is not empty\n");
+                    return FAT_ERR_GENERIC;
+                }
+
             }
         }
     }
@@ -668,6 +674,32 @@ uint32_t get_free_sector()
 
     // DISK FULL
     return FAT_ERR_DISK_FULL;
+}
+
+int rm_recursive(uint32_t folder_sector)
+{
+    uint32_t cursor = 0;
+    FAT_FCB *entry;
+    while((entry = read_dir_next(folder_sector, &cursor)) != NULL){
+        if ((strcmp(entry->name, ".") == 0) || (strcmp(entry->name, "..") == 0)){
+            continue;
+        }
+        if (entry->is_dir == 1){
+            rm_recursive(entry->first_sector);
+
+            entry->name[0] = '\0';
+            entry->file_size = 0;
+            chain_rm(entry->first_sector);
+
+        }
+        else {
+            entry->name[0] = '\0';
+            entry->file_size = 0;
+            chain_rm(entry->first_sector);
+        }
+    }
+
+    return FAT_SUCCESS;
 }
 
 //============================================================================//
