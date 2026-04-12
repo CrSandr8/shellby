@@ -229,17 +229,13 @@ int fat_readdir(uint32_t dir_sector)
     FAT_FCB *current_file;
     uint32_t file_count = 0;
 
-    printf("\nNAME                TYPE\n");
+    printf("\nNAME                SIZE\n");
     printf("-------------------------------\n");
 
     // We cycle from here
     while ((current_file = read_dir_next(dir_sector, &cursor)) != NULL)
     {
-        printf("%-20s ", current_file->name);
-        if (current_file->is_dir == 1)
-            printf("directory \n");
-        else
-            printf("file \n");
+        printf("%-20s  %dB\n", current_file->name, current_file->file_size);
         file_count++;
     }
 
@@ -352,9 +348,11 @@ int fat_writefile(const char *filename, const char *text, int append)
     FAT_FCB *this = find_in_dir(filename, disk->cwd_sector);
     if (this == NULL)
     {
-        fprintf(stderr, "File not found");
+        fprintf(stderr, "File not found\n");
         return FAT_ERR_GENERIC;
     }
+
+    uint32_t original_size = strlen(text);
 
     uint32_t sector_start = this->first_sector; // The sector we start from
     uint32_t offset_start = 0;                  // The offset we start from in sector_start
@@ -410,7 +408,7 @@ int fat_writefile(const char *filename, const char *text, int append)
 
             if (new_sector == FAT_ERR_DISK_FULL)
             {
-                fprintf(stderr, "No more disk space for file");
+                fprintf(stderr, "No more disk space for file\n");
                 return FAT_ERR_DISK_FULL;
             }
 
@@ -422,6 +420,7 @@ int fat_writefile(const char *filename, const char *text, int append)
         }
     }
 
+    update_parent_size(disk->cwd_sector, original_size);
     return FAT_SUCCESS;
 }
 
@@ -658,6 +657,7 @@ uint32_t get_free_sector()
         {
             printf("[DEBUG] Allocated free sector: %u\n", i);
             disk->sb->FSI_Nxt_Free = i + 1;
+            disk->sb->FSI_Free_Count--;
             return i;
         }
     }
@@ -734,7 +734,7 @@ uint32_t fat_resolve_path(const char *path)
 
         if (found == NULL)
         {
-            fprintf(stderr, "Folder not found");
+            fprintf(stderr, "Folder not found\n");
             return FAT_ERR_GENERIC;
         }
 
@@ -824,4 +824,21 @@ int update_cwd_path(const char *path)
     disk->cwd_path[255] = '\0';
 
     return FAT_SUCCESS;
+}
+
+int update_parent_size(uint32_t current_sector, int size)
+{
+    if (current_sector == 0) return FAT_SUCCESS;
+    FAT_FCB *parent = find_in_dir("..", current_sector);
+    uint32_t parent_sector = parent->first_sector;
+    while(1){
+        FAT_FCB *temp = get_entries(parent_sector);
+        for(int i = 0; i < ENTRIES_PER_SEC; i++){
+            if (temp[i].first_sector == current_sector){
+                temp[i].file_size += size;
+                return(update_parent_size(parent->first_sector, size));
+            }
+        }
+        parent_sector = get_next_sector(parent_sector);
+    }
 }

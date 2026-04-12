@@ -49,17 +49,44 @@ int do_cmd(char *argv[MAX_TOKENS], int argc)
 // ... keep dup_string and deallocate_cmd as they were ...
 
 void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
-    char line[MAX_LINE];
+    static char line[MAX_LINE];
     if (fgets(line, MAX_LINE, stdin) == NULL) {
         printf("\n");
         fat_unmount();
         exit(0);
     }
-    char* token = strtok(line, " \t\n");
     *argc = 0;
-    while (*argc < MAX_TOKENS && token != NULL) {
-        argv[(*argc)++] = strdup(token); // Simplified with strdup
-        token = strtok(NULL, " \t\n");
+    char *p = line;
+    int in_quotes = 0;
+
+    while(*p != '\0' && *argc < MAX_TOKENS){
+
+        while(*p == ' ' || *p == '\t' || *p == '\n') p++;
+
+        if (*p == '\0') break;
+
+        if (*p == '"'){
+            in_quotes = 1;
+            p++;
+        }
+
+        argv[*argc] = p;
+        (*argc)++;
+
+        while(*p != '\0'){
+            if (in_quotes && *p == '"'){
+                in_quotes = 0;
+                *p = '\0';
+                p++;
+                break;
+            }
+            if (!in_quotes && (*p == ' ' || *p == '\t' || *p == '\n')){
+                *p = '\0';
+                p++;
+                break;
+            }
+            p++;
+        }
     }
     argv[*argc] = NULL;
 }
@@ -76,7 +103,6 @@ int do_shell(const char* prompt_base) {
         if (argc > 0) {
             if(strcmp(argv[0], "close") == 0) break;
             do_cmd(argv, argc);
-            for(int i=0; i<argc; i++) free(argv[i]);
         }
     }
     return 0;

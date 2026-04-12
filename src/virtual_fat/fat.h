@@ -53,4 +53,7 @@ uint32_t get_free_sector(void);
 uint32_t fat_resolve_path(const char *path);
 int update_cwd_path(const char *path);
 
+// Update the size of the parent directories when a file changes size. Note that this quantity can be positive or negative, since a file can be extended when something is appended or be truncated/deleted
+int update_parent_size(uint32_t current_sector, int size);
+
 #endif
