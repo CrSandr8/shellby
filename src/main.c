@@ -17,5 +17,5 @@ int main(int argc, char **argv) {
     memset(disk, 0, sizeof(FAT_Disk));
     
     // 3. Start the shell
-    return do_shell("shellby:");
+    return do_shell("shellby>>");
 }

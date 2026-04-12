@@ -111,6 +111,8 @@ int fat_mount(const char *disk_path)
         close(fd);
         return FAT_ERR_BAD_SIG;
     }
+    strncpy((char *)disk->disk_name, disk_path, 63);
+    disk->disk_name[63] = '\0';
 
     // We now may be using a rightful disk file
     printf("Signature OK!\n");
@@ -352,13 +354,15 @@ int fat_writefile(const char *filename, const char *text, int append)
         return FAT_ERR_GENERIC;
     }
 
-    uint32_t original_size = strlen(text);
+    uint32_t new_text_len = strlen(text);
+    int size_delta;
 
     uint32_t sector_start = this->first_sector; // The sector we start from
     uint32_t offset_start = 0;                  // The offset we start from in sector_start
 
     if (append == 0)
     {
+        size_delta = (int)new_text_len - (int)this->file_size;
 
         // Cleanup the file
         this->file_size = 0;
@@ -370,6 +374,7 @@ int fat_writefile(const char *filename, const char *text, int append)
     }
     else
     {
+        size_delta = (int)new_text_len;
 
         // We are in append mode
         while (get_next_sector(sector_start) != FAT_EOC)
@@ -420,14 +425,13 @@ int fat_writefile(const char *filename, const char *text, int append)
         }
     }
 
-    update_parent_size(disk->cwd_sector, original_size);
+    update_parent_size(disk->cwd_sector, size_delta);
     return FAT_SUCCESS;
 }
 
 int fat_rm(const char *filename, int flag_recursive)
 {
-    // Placeholder for testing purposes
-    printf("[DEBUG] fat_rm called for filename: '%s'\n", filename);
+    //printf("[DEBUG] fat_rm called for filename: '%s'\n", filename);
 
     FAT_FCB *found = find_in_dir(filename, disk->cwd_sector);
 
@@ -462,6 +466,8 @@ int fat_rm(const char *filename, int flag_recursive)
             }
         }
     }
+
+    update_parent_size(disk->cwd_sector, -(int)found->file_size);
 
     // It is a file
     found->name[0] = '\0';
@@ -596,7 +602,7 @@ int chain_rm(uint32_t first_sector)
 {
     uint32_t current = first_sector;
 
-    if (current == FAT_FREE) // If sector is already labeled as free
+    if (current == FAT_FREE || current == FAT_EOC) // If sector is already labeled as free
         return FAT_SUCCESS;
 
     while (1)
@@ -604,6 +610,7 @@ int chain_rm(uint32_t first_sector)
         uint32_t next = get_next_sector(current); // We save where is the next sector of the chain
         disk->fat[current] = FAT_FREE;            // And free the current one
         disk->sb->FSI_Free_Count++;
+        disk->sb->FSI_Nxt_Free = current < disk->sb->FSI_Nxt_Free ? current : disk->sb->FSI_Nxt_Free;
 
         if (next == FAT_EOC || next == FAT_FREE) // Check out the next one, it might be the the end of the chain
         {
@@ -829,16 +836,25 @@ int update_cwd_path(const char *path)
 int update_parent_size(uint32_t current_sector, int size)
 {
     if (current_sector == 0) return FAT_SUCCESS;
+
     FAT_FCB *parent = find_in_dir("..", current_sector);
+
+    if (parent == NULL) return FAT_ERR_GENERIC;
+
     uint32_t parent_sector = parent->first_sector;
-    while(1){
-        FAT_FCB *temp = get_entries(parent_sector);
+    uint32_t current = parent_sector;
+
+    while(current != FAT_EOC){
+
+        FAT_FCB *entries = get_entries(current);
         for(int i = 0; i < ENTRIES_PER_SEC; i++){
-            if (temp[i].first_sector == current_sector){
-                temp[i].file_size += size;
-                return(update_parent_size(parent->first_sector, size));
+            if (entries[i].name[0] != '\0' && entries[i].first_sector == current_sector){
+                entries[i].file_size += size;
+                return(update_parent_size(parent_sector, size));
             }
         }
-        parent_sector = get_next_sector(parent_sector);
+        current = get_next_sector(current);
     }
+
+    return FAT_SUCCESS;
 }

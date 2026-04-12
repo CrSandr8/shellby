@@ -56,3 +56,10 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# The Executable of the project
+shellby
+
+# Binary or Image files
+.bin
+.img

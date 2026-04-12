@@ -18,9 +18,11 @@ cmd_t cmd_table[] = {
     {"touch", cmd_touch, "create a file", SHELL_STATE_MOUNTED},
     {"cat", cmd_cat, "print the content of a file", SHELL_STATE_MOUNTED},
     {"ls", cmd_ls, "list entries in this directory", SHELL_STATE_MOUNTED},
+    {"write", cmd_write, "overwrite a file with new text", SHELL_STATE_MOUNTED},
     {"append", cmd_append, "append text to a file", SHELL_STATE_MOUNTED},
     {"rm", cmd_rm, "remove a file or directory", SHELL_STATE_MOUNTED},
     {"unmount", cmd_unmount, "unmount the current disk", SHELL_STATE_MOUNTED},
+    {"clear", cmd_clear, "clear the terminal screen", SHELL_STATE_MOUNTED},
 
     {NULL, NULL, NULL}};
 
@@ -94,8 +96,14 @@ void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
 int do_shell(const char* prompt_base) {
     printf("Welcome to Shellby, a FAT based and portable shell\n");
     for (;;) {
-        // Dynamic prompt: "shellby:/path/to/dir$ "
-        printf("%s%s$ ", prompt_base, disk->disk_base ? disk->cwd_path : "");
+
+        if (disk->disk_base != NULL) {
+        // Disk is mounted: show shellby[disk_name]:/pathto/dir$ 
+        printf("%s[%s]:%s$ ", prompt_base, disk->disk_name, disk->cwd_path);
+        } else {
+        // No disk mounted: show shellby:$ 
+        printf("%s$ ", prompt_base);
+}
         
         char* argv[MAX_TOKENS];
         int argc = 0;
@@ -188,8 +196,21 @@ int cmd_ls(int argc, char **argv)
     return fat_readdir(disk->cwd_sector);
 }
 
+int cmd_write(int argc, char **argv)
+{
+    if (argc < 3) {
+        fprintf(stderr, "Usage: write <filename> \"text\"\n");
+        return -1;
+    }
+    return fat_writefile(argv[1], argv[2], 0);
+}
+
 int cmd_append(int argc, char **argv)
 {
+    if (argc < 3) {
+        fprintf(stderr, "Usage: append <filename> \"text\"\n");
+        return -1;
+    }
     return fat_writefile(argv[1], argv[2], 1);
 }
 
@@ -198,7 +219,7 @@ int cmd_rm(int argc, char **argv)
     int opt;
     int flag = 0;
 
-    optind = 1;
+    optind = 0;
 
     while ((opt = getopt(argc, argv, "r")) != -1){
         if (opt == 'r') flag = 1;
@@ -213,4 +234,16 @@ int cmd_rm(int argc, char **argv)
     char *arg = argv[optind];
 
     return fat_rm(arg, flag);
+}
+
+int cmd_clear(int argc, char **argv)
+{
+    // \033[2J: Clears the entire screen
+    // \033[H: Moves the cursor to the top-left corner (Home)
+    printf("\033[2J\033[H");
+    
+    // Ensure the output is printed immediately
+    fflush(stdout); 
+    
+    return 0; // Success
 }
