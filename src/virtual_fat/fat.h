@@ -46,8 +46,14 @@ uint32_t get_free_sector(void);
 #define get_total_disk_size(a, b) (a) + (b) + (sizeof(FAT_Superblock))
 #define get_num_sectors(a) (a) / SECTOR_SIZE
 #define get_fat_size(a) (a) * (sizeof(uint32_t))
+
+
+// This is a very important "function", since it is the one that takes a look at our FAT
 #define get_next_sector(a) (disk->fat[(a)])
+
+// We play with the fact that every FCB has the same size, so we treat a whole sector as an array of FCBs.
 #define get_entries(a) ((FAT_FCB *)(disk->data + ((a) * SECTOR_SIZE)))
+
 
 // Path and string management
 int parse_filename(const char *filename, char *name_dest, char *ext_dest);

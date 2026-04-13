@@ -61,5 +61,5 @@ dkms.conf
 shellby
 
 # Binary or Image files
-.bin
-.img
+*.bin
+*.img

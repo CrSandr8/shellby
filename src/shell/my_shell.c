@@ -94,7 +94,11 @@ void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
 }
 
 int do_shell(const char* prompt_base) {
-    printf("Welcome to Shellby, a FAT based and portable shell\n");
+    printf("    _        _ _ _         \n");
+    printf(" __| |_  ___| | | |__ _  _ \n");
+    printf("(_-< ' \/ -_) | | '_ \ || |\n");
+    printf("/__/_||_\___|_|_|_.__/\_, |\n");
+    printf("                      |__/ \n\n");
     for (;;) {
 
         if (disk->disk_base != NULL) {
@@ -127,7 +131,7 @@ int cmd_format(int argc, char **argv)
     int final_size = 1000000;
 
     if (argc == 2) {
-        /* * Logic for a single extra argument: format <input>
+        /* * Logic for a single argument: format <input>
          * We check if the first character of the input is a digit.
          */
         if (isdigit(argv[1][0])) {

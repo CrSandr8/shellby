@@ -22,6 +22,10 @@
 #define SECTOR_SIZE 512 
 #define ENTRIES_PER_SEC (SECTOR_SIZE / 32) // Each FCB is 32 bytes
 #define MIN_DISK_SIZE (1024 * 1024)
+#define MAX_DISK_SIZE (1024 * 1024 * 1024) 
+
+
+// NOTE: if the sector size is changed from the default value the only other value that has to be changed is the padding in the superblock which has to be SECTOR_SIZE - 20
 
 /**
  * Superblock: Located at the start of the disk file (Sector 0)
