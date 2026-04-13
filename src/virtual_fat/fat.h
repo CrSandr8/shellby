@@ -50,6 +50,7 @@ uint32_t get_free_sector(void);
 #define get_entries(a) ((FAT_FCB *)(disk->data + ((a) * SECTOR_SIZE)))
 
 // Path and string management
+int parse_filename(const char *filename, char *name_dest, char *ext_dest);
 uint32_t fat_resolve_path(const char *path);
 int update_cwd_path(const char *path);
 

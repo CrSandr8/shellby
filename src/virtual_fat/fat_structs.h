@@ -43,7 +43,8 @@ typedef struct
  */
 typedef struct
 {
-    uint8_t name[23];      // Filename string (null-terminated)
+    uint8_t name[16];      // File name string (null-terminated)
+    uint8_t ext[7];        // File extension
     uint32_t first_sector; // Index of the first sector in the FAT
     uint8_t is_dir;        // Boolean flag: 1 if directory, 0 if file
     uint32_t file_size;    // Size of the file in bytes

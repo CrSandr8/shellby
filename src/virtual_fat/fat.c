@@ -172,6 +172,11 @@ int fat_unmount(void)
 
 int fat_createdir(const char *name)
 {
+    if (strlen(name) > 15){
+    fprintf(stderr, "Error: directory name too long\n");
+    return FAT_ERR_GENERIC;
+    }
+
     if (find_in_dir(name, disk->cwd_sector) != NULL)
     {
         fprintf(stderr, "Directory already exists");
@@ -198,7 +203,9 @@ int fat_createdir(const char *name)
         return FAT_ERR_DISK_FULL;
     }
 
-    strcpy(new->name, name);
+    strncpy(new->name, name, 15);
+    new->name[15] = '\0';
+    new->ext[0] = '\0';
     new->is_dir = 1;
     new->file_size = 0;
     disk->fat[new_first_sector] = FAT_EOC;
@@ -221,6 +228,7 @@ int fat_createdir(const char *name)
 
 int fat_readdir(uint32_t dir_sector)
 {
+    //TODO parse extension
     // Checking if input sector is valid
     if (dir_sector == FAT_EOC)
     {
@@ -237,7 +245,7 @@ int fat_readdir(uint32_t dir_sector)
     // We cycle from here
     while ((current_file = read_dir_next(dir_sector, &cursor)) != NULL)
     {
-        printf("%-20s  %dB\n", current_file->name, current_file->file_size);
+        printf("%-20s.%s  %dB\n", current_file->name, current_file->ext, current_file->file_size);
         file_count++;
     }
 
@@ -301,7 +309,16 @@ int fat_createfile(const char *filename)
         return FAT_ERR_DISK_FULL;
     }
 
-    strcpy(new->name, filename);
+    char name[16];
+    char ext[7];
+
+    if (parse_filename(filename, name, ext) == FAT_ERR_GENERIC){
+        fprintf(stderr, "Error while parsing file name or extension\n");
+        return FAT_ERR_GENERIC;
+    }
+
+    strcpy(new->name, name);
+    strcpy(new->ext, ext);
     new->is_dir = 0;
     new->file_size = 0;
     disk->fat[new_first_sector] = FAT_EOC;
@@ -486,8 +503,16 @@ int fat_rm(const char *filename, int flag_recursive)
 //============================= FCB Routines =================================//
 //============================================================================//
 
-FAT_FCB *find_in_dir(const char *name, uint32_t sector) // Look for a file named name in the current dir
+FAT_FCB *find_in_dir(const char *filename, uint32_t sector) // Look for a file named name in the current dir
 {
+    char name[16];
+    char ext[7];
+
+    if (parse_filename(filename, name, ext) == FAT_ERR_GENERIC){
+        fprintf(stderr, "Error while parsing filename in find_in_dir\n");
+        return NULL;
+    }
+
     uint32_t current = sector;
 
     while (current != FAT_EOC)
@@ -498,7 +523,7 @@ FAT_FCB *find_in_dir(const char *name, uint32_t sector) // Look for a file named
         for (int i = 0; i < ENTRIES_PER_SEC; i++)
         {
             //
-            if (entries[i].name[0] != '\0' && strcmp((char *)entries[i].name, name) == 0)
+            if (entries[i].name[0] != '\0' && strcmp((char *)entries[i].name, name) == 0 && strcmp((char *)entries[i].ext, ext) == 0)
             {
                 return &entries[i]; // Found it!
             }
@@ -710,8 +735,51 @@ int rm_recursive(uint32_t folder_sector)
 }
 
 //============================================================================//
-//========================= Path related string management ===================//
+//========================= Path and string management ===================//
 //============================================================================//
+
+int parse_filename(const char *filename, char *name_dest, char *ext_dest)
+{
+    
+    if (filename[0] == '\0'){
+        fprintf(stderr, "Error: cannot use a blank name for file\n");
+        return FAT_ERR_GENERIC;
+    }
+
+    uint32_t input_len = strlen(filename);
+
+    if (input_len > 22){
+        fprintf(stderr, "Error: tried to use a too long name for file\n");
+        return FAT_ERR_GENERIC;
+    }
+
+    char *ext_start = strrchr(filename, '.');
+
+    if (ext_start == NULL){
+        strncpy(name_dest, filename, 16);
+        ext_dest[0] = '\0';
+        return FAT_SUCCESS;
+    }
+
+    if (ext_start == filename){
+        strncpy(name_dest, filename, 15);
+        name_dest[15] = '\0';
+        ext_dest[0] = '\0';
+        return FAT_SUCCESS;
+    }
+
+    uint32_t ext_len = strlen(ext_start + 1);
+    uint32_t name_len = input_len - ext_len - 1;
+
+    strncpy(name_dest, filename, name_len);
+    name_dest[15] = '\0';
+
+    strncpy(ext_dest, ext_start + 1, 6);
+    ext_dest[6] = '\0';
+    return FAT_SUCCESS;
+
+
+}
 
 uint32_t fat_resolve_path(const char *path)
 {
