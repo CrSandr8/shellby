@@ -173,8 +173,13 @@ int fat_unmount(void)
 int fat_createdir(const char *name)
 {
     if (strlen(name) > 15){
-    fprintf(stderr, "Error: directory name too long\n");
-    return FAT_ERR_GENERIC;
+        fprintf(stderr, "Error: directory name too long\n");
+        return FAT_ERR_GENERIC;
+    }
+
+    if(strchr(name, '.')){
+        fprintf(stderr, "Error, directory names must not contain dots\n");
+        return FAT_ERR_GENERIC;
     }
 
     if (find_in_dir(name, disk->cwd_sector) != NULL)
@@ -746,6 +751,12 @@ int parse_filename(const char *filename, char *name_dest, char *ext_dest)
         return FAT_ERR_GENERIC;
     }
 
+    if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0){
+        strcpy(name_dest, filename);
+        ext_dest[0] = '\0';
+        return FAT_SUCCESS;
+    }
+
     uint32_t input_len = strlen(filename);
 
     if (input_len > 22){
@@ -772,10 +783,10 @@ int parse_filename(const char *filename, char *name_dest, char *ext_dest)
     uint32_t name_len = input_len - ext_len - 1;
 
     strncpy(name_dest, filename, name_len);
-    name_dest[15] = '\0';
+    name_dest[name_len] = '\0';
 
     strncpy(ext_dest, ext_start + 1, 6);
-    ext_dest[6] = '\0';
+    ext_dest[ext_len] = '\0';
     return FAT_SUCCESS;
 
 
