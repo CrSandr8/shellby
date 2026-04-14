@@ -14,7 +14,6 @@ typedef int (*cmd_func_t)(int argc, char **argv);
 typedef struct {
     char *name;
     cmd_func_t func;
-    char *help;
     shell_state_t required_state; //A command can be executed only in his shell state
 } cmd_t;
 

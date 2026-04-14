@@ -17,7 +17,13 @@ FAT_Disk *disk = NULL;
 // Creates a file named filename with size size and formats it to be utilized as a shellby FAT disk.
 int fat_create_disk(const char *filename, int size)
 {
-    int fd = open(filename, O_RDWR | O_CREAT, 0666);
+    char final_name[256];
+    int len = strlen(filename);
+
+    if (len > 3 && strcmp(filename + len - 4, ".bin") == 0) strncpy(final_name, filename, 255);
+    else snprintf(final_name, 256, "%s.bin", filename);
+
+    int fd = open(final_name, O_RDWR | O_CREAT, 0666);
 
     if (fd == -1)
     {
@@ -76,7 +82,7 @@ int fat_create_disk(const char *filename, int size)
     fat[0] = FAT_EOC; //The root FAT entry
     sb->FSI_Free_Count--;
 
-    printf("Successfully formatted disk %s with size %d\n", filename, disk_size);
+    printf("Successfully formatted disk %s with size %d\n", final_name, disk_size);
 
     close(fd);
 
@@ -107,11 +113,11 @@ int fat_mount(const char *disk_path)
         return FAT_ERR_GENERIC;
     }
 
-    if (st.st_size < MIN_DISK_SIZE || st.st_size > MAX_DISK_SIZE)
-    {
-        perror("Error: tried to mount a disk of inappropriate size");
-        return FAT_ERR_GENERIC;
-    }
+    //if (st.st_size < MIN_DISK_SIZE || st.st_size > MAX_DISK_SIZE)
+    //{
+    //    perror("Error: tried to mount a disk of inappropriate size");
+    //    return FAT_ERR_GENERIC;
+    //}
 
     disk->disk_size = st.st_size;
 
@@ -291,15 +297,26 @@ int fat_readdir(uint32_t dir_sector)
     {
         // NOTE These lines of code have the only utility of making the ls look a little bit better
         if (current_file->is_dir) {
-            printf("%-15s %-5s %10s\n", current_file->name, "", "<DIR>");
-        } else {
+
+            if (strcmp(current_file->name, ".") == 0 || strcmp(current_file->name, "..") == 0){
+
+                printf("%-15s            \n", current_file->name);
+            }
+            else{
+
+                printf("%-15s %-5s %10u B\n", current_file->name, "", current_file->file_size);
+            }
+        }
+
+        else {
+
             printf("%-15s %-5s %10u B\n", current_file->name, current_file->ext, current_file->file_size);
         }
         // This is by far more important
         file_count++;
     }
 
-    printf("-------------------------------\n");
+    printf("----------------------------------------------\n");
     printf("Total: %u elements.\n\n", file_count);
 
     return FAT_SUCCESS;

@@ -9,24 +9,30 @@
 
 cmd_t cmd_table[] = {
 
-    {"help", cmd_help, "get help for usage", SHELL_STATE_UNMOUNTED},
-    {"format", cmd_format, "create a new directory", SHELL_STATE_UNMOUNTED},
-    {"mount", cmd_mount, "create a new directory", SHELL_STATE_UNMOUNTED},
+    {"help", cmd_help, SHELL_STATE_UNMOUNTED},
+    {"format", cmd_format, SHELL_STATE_UNMOUNTED},
+    {"mount", cmd_mount, SHELL_STATE_UNMOUNTED},
     
-    {"mkdir", cmd_mkdir, "create a new directory", SHELL_STATE_MOUNTED},
-    {"cd", cmd_cd, "change current working directory", SHELL_STATE_MOUNTED},
-    {"touch", cmd_touch, "create a file", SHELL_STATE_MOUNTED},
-    {"cat", cmd_cat, "print the content of a file", SHELL_STATE_MOUNTED},
-    {"ls", cmd_ls, "list entries in this directory", SHELL_STATE_MOUNTED},
-    {"write", cmd_write, "overwrite a file with new text", SHELL_STATE_MOUNTED},
-    {"append", cmd_append, "append text to a file", SHELL_STATE_MOUNTED},
-    {"rm", cmd_rm, "remove a file or directory", SHELL_STATE_MOUNTED},
-    {"unmount", cmd_unmount, "unmount the current disk", SHELL_STATE_MOUNTED},
-    {"clear", cmd_clear, "clear the terminal screen", SHELL_STATE_MOUNTED},
+    {"mkdir", cmd_mkdir, SHELL_STATE_MOUNTED},
+    {"cd", cmd_cd, SHELL_STATE_MOUNTED},
+    {"touch", cmd_touch, SHELL_STATE_MOUNTED},
+    {"cat", cmd_cat, SHELL_STATE_MOUNTED},
+    {"ls", cmd_ls, SHELL_STATE_MOUNTED},
+    {"write", cmd_write, SHELL_STATE_MOUNTED},
+    {"append", cmd_append, SHELL_STATE_MOUNTED},
+    {"rm", cmd_rm, SHELL_STATE_MOUNTED},
+    {"unmount", cmd_unmount, SHELL_STATE_MOUNTED},
+    {"clear", cmd_clear, SHELL_STATE_MOUNTED}};
 
-    {NULL, NULL, NULL}};
+    //{NULL, NULL, NULL}};
+
+
+
 
 shell_state_t current_state = SHELL_STATE_UNMOUNTED;
+
+
+
 
 int do_cmd(char *argv[MAX_TOKENS], int argc)
 {
@@ -48,7 +54,9 @@ int do_cmd(char *argv[MAX_TOKENS], int argc)
     printf("Shellby: command not found: %s\n", argv[0]);
     return -1;
 }
-// ... keep dup_string and deallocate_cmd as they were ...
+
+
+
 
 void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
     static char line[MAX_LINE];
@@ -93,6 +101,9 @@ void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
     argv[*argc] = NULL;
 }
 
+
+
+
 int do_shell(const char* prompt_base) {
     printf("    _        _ _ _         \n");
     printf(" __| |_  ___| | | |__ _  _ \n");
@@ -120,6 +131,9 @@ int do_shell(const char* prompt_base) {
     return 0;
 }
 
+
+
+
 int cmd_help(int argc, char **argv)
 {
     return 0;
@@ -128,30 +142,35 @@ int cmd_help(int argc, char **argv)
 int cmd_format(int argc, char **argv)
 {
     char *final_name = "filesystem.bin";
-    int final_size = 1000000;
+    int final_size = 1024*1024; // This is the default value
 
     if (argc == 2) {
-        /* * Logic for a single argument: format <input>
-         * We check if the first character of the input is a digit.
-         */
+
         if (isdigit(argv[1][0])) {
             // Case 1: Input is a number (e.g., "format 500000")
             // Keep default name, update size.
             final_size = atoi(argv[1]);
+            
         } else {
             // Case 2: Input is a string (e.g., "format mydisk")
             // Update name, keep default size.
             final_name = argv[1];
         }
+
     } 
     else if (argc >= 3) {
-        /* * Case 4: Complete input provided (e.g., "format mydisk 2000000")
+        /* * Case 3: Complete input provided (e.g., "format mydisk 2000000")
          */
         final_name = argv[1];
         final_size = atoi(argv[2]);
     }
     // If argc == 1 (only "format"), the code falls through and uses defaults.
 
+    if (final_size > MAX_DISK_SIZE || final_size < MIN_DISK_SIZE){
+                fprintf(stderr, "Error: tried to create a disk file of inappropriate size\n");
+                return -1;
+    }
+    
     // Call the core function to format the virtual disk image
     return fat_create_disk(final_name, final_size);
 

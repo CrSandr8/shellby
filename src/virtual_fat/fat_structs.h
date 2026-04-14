@@ -21,7 +21,7 @@
 // Fundamental dimensional values
 #define SECTOR_SIZE 512 
 #define ENTRIES_PER_SEC (SECTOR_SIZE / 32) // Each FCB is 32 bytes
-#define MIN_DISK_SIZE (1024 * 1024)
+#define MIN_DISK_SIZE (1024)
 #define MAX_DISK_SIZE (1024 * 1024 * 1024) 
 
 
