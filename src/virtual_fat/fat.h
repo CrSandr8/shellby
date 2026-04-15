@@ -5,7 +5,7 @@
 
 // Global pointer to the mapped disk structure
 extern FAT_Disk *disk;
-extern int optind; //this 
+extern int optind; 
 
 
 //============================================================================//

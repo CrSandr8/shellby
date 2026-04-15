@@ -9,7 +9,7 @@
 
 cmd_t cmd_table[] = {
 
-    {"help", cmd_help, SHELL_STATE_UNMOUNTED},
+    {"help", cmd_help, SHELL_STATE_ANY},
     {"format", cmd_format, SHELL_STATE_UNMOUNTED},
     {"mount", cmd_mount, SHELL_STATE_UNMOUNTED},
     
@@ -24,10 +24,8 @@ cmd_t cmd_table[] = {
     {"unmount", cmd_unmount, SHELL_STATE_MOUNTED},
     {"clear", cmd_clear, SHELL_STATE_MOUNTED}};
 
-    //{NULL, NULL, NULL}};
 
-
-
+    
 
 shell_state_t current_state = SHELL_STATE_UNMOUNTED;
 
@@ -43,7 +41,7 @@ int do_cmd(char *argv[MAX_TOKENS], int argc)
     {
         if (strcmp(argv[0], cmd_table[i].name) == 0)
         {
-            if(current_state != cmd_table[i].required_state){
+            if(current_state != cmd_table[i].required_state && cmd_table[i].required_state != SHELL_STATE_ANY){
                 printf("Error: wrong shell state\n");
                 return -1;
             }
@@ -69,7 +67,7 @@ void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
     char *p = line;
     int in_quotes = 0;
 
-    while(*p != '\0' && *argc < MAX_TOKENS){
+    while(*p != '\0' && *argc < (MAX_TOKENS - 1)){ // This could cause trouble if a command has exactly 256 tokens so we leave one
 
         while(*p == ' ' || *p == '\t' || *p == '\n') p++;
 
@@ -124,7 +122,17 @@ int do_shell(const char* prompt_base) {
         int argc = 0;
         get_cmd_line(argv, &argc);
         if (argc > 0) {
-            if(strcmp(argv[0], "close") == 0) break;
+            if(strcmp(argv[0], "close") == 0)
+            {
+                if (current_state == SHELL_STATE_MOUNTED) 
+                {
+                    fprintf(stderr, "Error: please unmount before closing the shell\n");
+                    continue;
+                }
+
+                break;
+                    
+            } 
             do_cmd(argv, argc);
         }
     }
@@ -136,6 +144,47 @@ int do_shell(const char* prompt_base) {
 
 int cmd_help(int argc, char **argv)
 {
+    // Ignore unused parameters to prevent compiler warnings
+    (void)argc;
+    (void)argv;
+
+    if (current_state == SHELL_STATE_UNMOUNTED) {
+        printf("\n=======================================================\n");
+        printf("             SHELLBY - STATE: UNMOUNTED\n");
+        printf("=======================================================\n");
+        printf("Available commands:\n\n");
+        
+        printf("  help                    Show this help menu\n");
+        printf("  format [name] [size]    Format a new virtual disk.\n");
+        printf("                          (Default: filesystem.bin 1048576)\n");
+        printf("  mount <filename>        Mount an existing virtual disk\n");
+        printf("  close                   Close the application\n");
+        
+        printf("=======================================================\n\n");
+    } 
+    else {
+        printf("\n=======================================================\n");
+        printf("              SHELLBY - STATE: MOUNTED\n");
+        printf("=======================================================\n");
+        printf("Available commands:\n\n");
+        
+        printf("  help                    Show this help menu\n");
+        printf("  ls                      List files in the current directory\n");
+        printf("  cd <path>               Change directory (e.g., cd folder, cd ..)\n");
+        printf("  mkdir <name>            Create a new directory\n");
+        printf("  touch <filename>        Create a new empty file\n");
+        printf("  cat <filename>          Print the content of a file\n");
+        printf("  write <file> \"text\"     Overwrite a file with the specified text\n");
+        printf("  append <file> \"text\"    Append text to the end of a file\n");
+        printf("  rm [-r] <name>          Remove a file or directory.\n");
+        printf("                          (Use -r to remove non-empty folders)\n");
+        printf("  clear                   Clear the terminal screen\n");
+        printf("  unmount                 Unmount the current disk and save changes\n");
+        printf("  close                   Close the application (manual unmount recommended)\n");
+        
+        printf("=======================================================\n\n");
+    }
+
     return 0;
 }
 
@@ -147,37 +196,37 @@ int cmd_format(int argc, char **argv)
     if (argc == 2) {
 
         if (isdigit(argv[1][0])) {
-            // Case 1: Input is a number (e.g., "format 500000")
-            // Keep default name, update size.
+            // Case 1: Input is a number
             final_size = atoi(argv[1]);
             
         } else {
-            // Case 2: Input is a string (e.g., "format mydisk")
-            // Update name, keep default size.
+            // Case 2: Input is a string
             final_name = argv[1];
         }
 
     } 
     else if (argc >= 3) {
-        /* * Case 3: Complete input provided (e.g., "format mydisk 2000000")
-         */
+        // Case 3: Complete input provided
         final_name = argv[1];
         final_size = atoi(argv[2]);
     }
-    // If argc == 1 (only "format"), the code falls through and uses defaults.
 
     if (final_size > MAX_DISK_SIZE || final_size < MIN_DISK_SIZE){
                 fprintf(stderr, "Error: tried to create a disk file of inappropriate size\n");
                 return -1;
     }
     
-    // Call the core function to format the virtual disk image
     return fat_create_disk(final_name, final_size);
 
 }
 
 int cmd_mount(int argc, char **argv)
 {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: mount <filename>\n");
+        return -1;
+    }
+
     int res = fat_mount(argv[1]);
 
     if(res == FAT_SUCCESS) current_state = SHELL_STATE_MOUNTED;
@@ -196,21 +245,37 @@ int cmd_unmount(int argc, char **argv)
 
 int cmd_mkdir(int argc, char **argv)
 {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: mkdir <name>\n");
+        return -1;
+    }
     return fat_createdir(argv[1]);
 }
 
 int cmd_cd(int argc, char **argv)
 {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: cd <path>\n");
+        return -1;
+    }
     return fat_change_dir(argv[1]);
 }
 
 int cmd_touch(int argc, char **argv)
 {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: touch <filename>\n");
+        return -1;
+    }
     return fat_createfile(argv[1]);
 }
 
 int cmd_cat(int argc, char **argv)
 {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: cat <filename>\n");
+        return -1;
+    }
     return fat_readfile(argv[1]);
 }
 
@@ -250,7 +315,7 @@ int cmd_rm(int argc, char **argv)
     }
 
     if (optind >= argc){
-        fprintf(stderr, "Err");
+        fprintf(stderr, "Usage: rm [-r] <name>\n");
         return -1;
     }
 

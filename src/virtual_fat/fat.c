@@ -113,11 +113,11 @@ int fat_mount(const char *disk_path)
         return FAT_ERR_GENERIC;
     }
 
-    //if (st.st_size < MIN_DISK_SIZE || st.st_size > MAX_DISK_SIZE)
-    //{
-    //    perror("Error: tried to mount a disk of inappropriate size");
-    //    return FAT_ERR_GENERIC;
-    //}
+    if (st.st_size < MIN_DISK_SIZE || st.st_size > MAX_DISK_SIZE)
+    {
+        perror("Error: tried to mount a disk of inappropriate size");
+        return FAT_ERR_GENERIC;
+    }
 
     disk->disk_size = st.st_size;
 
@@ -557,10 +557,10 @@ int fat_rm(const char *filename, int flag_recursive)
             rm_recursive(found->first_sector);
         }
         else{
-            uint32_t cursor = 0;
+            uint32_t current_entry_index = 0;
             uint32_t current = found->first_sector;
             FAT_FCB *temp;
-            while((temp = read_dir_next(current, &cursor)) != NULL){
+            while((temp = read_dir_next(current, &current_entry_index)) != NULL){
                 if ((strcmp(temp->name, ".") != 0) && (strcmp(temp->name, "..") != 0))
                 {
                     fprintf(stderr, "Error: tried to remove a folder that is not empty\n");
@@ -627,7 +627,7 @@ FAT_FCB *find_in_dir(const char *filename, uint32_t sector)
 
 
 
-// Starting from the current location, look for empty space in sectors. This function uses the FAT to pass on to the next sector of the chain
+// Starting from the current location, look for empty space in chains of sectors. This function uses the FAT to get to the next sector of the chain
 FAT_FCB *find_free_entry(uint32_t sector)
 {
     uint32_t current = sector;
@@ -651,7 +651,8 @@ FAT_FCB *find_free_entry(uint32_t sector)
 }
 
 
-//Since every sector has the same capacity of FCBs, we use this function to iterate in a single sector, starting from where the cursor is placed. In the exact moment we find and entry with a name that is not empty, we return its FCB
+
+//Since every sector has the same capacity of FCBs, we use this function to iterate in a single sector, starting from the index specified in the entry_index variable. In the exact moment we find and entry with a name that is not empty, we return its FCB
 FAT_FCB *read_dir_next(uint32_t dir_sector, uint32_t *entry_index)
 {
     while (1)
@@ -818,9 +819,7 @@ int rm_recursive(uint32_t folder_sector)
     FAT_FCB *entry;
     while((entry = read_dir_next(folder_sector, &fcb_index)) != NULL){
 
-        if ((strcmp(entry->name, ".") == 0) || (strcmp(entry->name, "..") == 0)){
-            continue;
-        }
+        if ((strcmp(entry->name, ".") == 0) || (strcmp(entry->name, "..") == 0)) continue;
 
         if (entry->is_dir == 1) rm_recursive(entry->first_sector);
 
@@ -833,9 +832,11 @@ int rm_recursive(uint32_t folder_sector)
 }
 
 //============================================================================//
-//========================= Path and string management ===================//
+//========================= Path and string management =======================//
 //============================================================================//
 
+
+// Parses the input string and divides it in name and extension. It is used for file creation or to search for a file in the current directory.
 int parse_filename(const char *filename, char *name_dest, char *ext_dest)
 {
     
@@ -890,7 +891,7 @@ int parse_filename(const char *filename, char *name_dest, char *ext_dest)
 
 
 
-
+// Finds the sector where a given path is located. It is used for directory path resolving.
 uint32_t fat_resolve_path(const char *path)
 {
     // If given path is empty we remain where we are
@@ -940,7 +941,7 @@ uint32_t fat_resolve_path(const char *path)
 
 
 
-
+// Updates the runtime struct cwd_path string by parsing the path given. It does NOT check if the path actually exists. That is a resposnsibility of the change_dir function, that should call this function only after checking it.
 int update_cwd_path(const char *path)
 {
     if (path == NULL)
@@ -1016,12 +1017,12 @@ int update_cwd_path(const char *path)
 
 
 
-
+// Uses the special ".." entry to get to the parent directory. Then iterates through its entries and sums their sizes to update the total size.
 int update_parent_size(uint32_t current_sector, int size)
 {
     if (current_sector == 0) return FAT_SUCCESS;
 
-    FAT_FCB *parent = find_in_dir("..", current_sector); // We use the special entry to reach the parent from the current dir
+    FAT_FCB *parent = find_in_dir("..", current_sector);
 
     if (parent == NULL) return FAT_ERR_GENERIC;
 

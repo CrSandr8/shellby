@@ -7,6 +7,7 @@
 typedef enum{
     SHELL_STATE_UNMOUNTED, //When we start the app
     SHELL_STATE_MOUNTED,  //After we have mounted a (virtual) disk
+    SHELL_STATE_ANY, //Only for help command
 } shell_state_t;
 
 typedef int (*cmd_func_t)(int argc, char **argv);
