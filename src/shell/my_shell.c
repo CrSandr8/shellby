@@ -101,13 +101,20 @@ void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
 
 
 
-
 int do_shell(const char* prompt_base) {
-    printf("    _        _ _ _         \n");
-    printf(" __| |_  ___| | | |__ _  _ \n");
-    printf("(_-< ' \/ -_) | | '_ \ || |\n");
-    printf("/__/_||_\___|_|_|_.__/\_, |\n");
-    printf("                      |__/ \n\n");
+    printf( "   ::::::::  :::    ::: :::::::::: :::        :::        :::::::::  :::   :::  \n");
+    printf( "  :+:    :+: :+:    :+: :+:        :+:        :+:        :+:    :+: :+:   :+:  \n");
+    printf( "  +:+        +:+    +:+ +:+        +:+        +:+        +:+    +:+  +:+ +:+   \n");
+    printf( "  +#++:++#++ +#++:++#++ +#++:++#   +#+        +#+        +#++:++#+    +#++:    \n");
+    printf( "         +#+ +#+    +#+ +#+        +#+        +#+        +#+    +#+    +#+     \n");
+    printf( "  #+#    #+# #+#    #+# #+#        #+#        #+#        #+#    #+#    #+#     \n");
+    printf( "   ########  ###    ### ########## ########## ########## #########     ###     \n");      
+    
+    printf("\n");
+
+    printf("Welcome to shellby! Type help to get a glance at the commands \n");
+
+    printf("\n");
     for (;;) {
 
         if (disk->disk_base != NULL) {
@@ -116,7 +123,7 @@ int do_shell(const char* prompt_base) {
         } else {
         // No disk mounted: show shellby:$ 
         printf("%s$ ", prompt_base);
-}
+        }
         
         char* argv[MAX_TOKENS];
         int argc = 0;
@@ -149,9 +156,9 @@ int cmd_help(int argc, char **argv)
     (void)argv;
 
     if (current_state == SHELL_STATE_UNMOUNTED) {
-        printf("\n=======================================================\n");
+        printf("\n================================================================================\n");
         printf("             SHELLBY - STATE: UNMOUNTED\n");
-        printf("=======================================================\n");
+        printf("==================================================================================\n");
         printf("Available commands:\n\n");
         
         printf("  help                    Show this help menu\n");
@@ -160,12 +167,12 @@ int cmd_help(int argc, char **argv)
         printf("  mount <filename>        Mount an existing virtual disk\n");
         printf("  close                   Close the application\n");
         
-        printf("=======================================================\n\n");
+        printf("==================================================================================\n\n");
     } 
     else {
-        printf("\n=======================================================\n");
+        printf("\n================================================================================\n");
         printf("              SHELLBY - STATE: MOUNTED\n");
-        printf("=======================================================\n");
+        printf("==================================================================================\n");
         printf("Available commands:\n\n");
         
         printf("  help                    Show this help menu\n");
@@ -182,7 +189,7 @@ int cmd_help(int argc, char **argv)
         printf("  unmount                 Unmount the current disk and save changes\n");
         printf("  close                   Close the application (manual unmount recommended)\n");
         
-        printf("=======================================================\n\n");
+        printf("===================================================================================\n\n");
     }
 
     return 0;

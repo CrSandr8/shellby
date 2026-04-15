@@ -14,9 +14,10 @@
 
 // FAT Block status definitions
 #define FAT_FREE 0
-#define FAT_RESERVED 0x00000001
-#define FAT_BADCLUSTER 0x0FFFFFF7
+//#define FAT_RESERVED 0x00000001
+#define FAT_BADCLUSTER 0x0FFFFFF7 // This is used as an invalid cluster flag. In the real FAT it has a different use
 #define FAT_EOC 0x0FFFFFF8
+#define FAT_NO_FREE_SPACE 0xFFFFFFFF
 
 // Fundamental dimensional values
 #define SECTOR_SIZE 512 

@@ -77,7 +77,6 @@ int fat_create_disk(const char *filename, int size)
     sb->FSI_Nxt_Free = 1; // We put the root at index 0
 
     uint32_t *fat = (uint32_t *)((uint8_t *)base + sizeof(FAT_Superblock));
-    uint8_t *data = (uint8_t *)((uint8_t *)base + sizeof(FAT_Superblock) + sb->FATSz);
 
     fat[0] = FAT_EOC; //The root FAT entry
     sb->FSI_Free_Count--;
@@ -215,7 +214,9 @@ int fat_createdir(const char *name)
         return FAT_ERR_GENERIC;
     }
 
-    if (find_in_dir(name, disk->cwd_sector) != NULL)
+    FAT_FCB *found = find_in_dir(name, disk->cwd_sector);
+
+    if (found != NULL && found->is_dir == 1)
     {
         fprintf(stderr, "Directory already exists\n");
         return FAT_ERR_GENERIC;
@@ -229,7 +230,7 @@ int fat_createdir(const char *name)
         // We search for a free sector and append it to the current chain
         uint32_t extended_sector = get_free_sector();
 
-        if (extended_sector == FAT_ERR_DISK_FULL)
+        if (extended_sector == FAT_NO_FREE_SPACE)
         {
             fprintf(stderr, "No more disk space for directory\n");
             return FAT_ERR_DISK_FULL;
@@ -243,14 +244,14 @@ int fat_createdir(const char *name)
     }
 
     uint32_t new_first_sector = get_free_sector();
-    if (new_first_sector == FAT_ERR_DISK_FULL)
+    if (new_first_sector == FAT_NO_FREE_SPACE)
     {
         fprintf(stderr, "No more disk space for directory\n");
         return FAT_ERR_DISK_FULL;
     }
 
     // The directory FCB init
-    strncpy(new->name, name, 15);
+    strncpy((char *)new->name, name, 15);
     new->name[15] = '\0';
     new->ext[0] = '\0';
     new->is_dir = 1;
@@ -298,7 +299,7 @@ int fat_readdir(uint32_t dir_sector)
         // NOTE These lines of code have the only utility of making the ls look a little bit better
         if (current_file->is_dir) {
 
-            if (strcmp(current_file->name, ".") == 0 || strcmp(current_file->name, "..") == 0){
+            if (strcmp((char *)current_file->name, ".") == 0 || strcmp((char *)current_file->name, "..") == 0){
 
                 printf("%-15s            \n", current_file->name);
             }
@@ -329,7 +330,7 @@ int fat_change_dir(const char *path)
 {
     uint32_t target = fat_resolve_path(path); // Locate the destination sector
 
-    if (target == FAT_ERR_GENERIC)
+    if (target == FAT_BADCLUSTER)
     {
         fprintf(stderr, "Error: cannot resolve path\n");
         return FAT_ERR_GENERIC;
@@ -351,7 +352,9 @@ int fat_change_dir(const char *path)
 
 int fat_createfile(const char *filename)
 {
-    if (find_in_dir(filename, disk->cwd_sector) != NULL)
+    FAT_FCB *found = find_in_dir(filename, disk->cwd_sector);
+
+    if (found != NULL && found->is_dir == 0)
     {
         fprintf(stderr, "File already exists\n");
         return FAT_ERR_GENERIC;
@@ -363,7 +366,7 @@ int fat_createfile(const char *filename)
     if (new == NULL)
     {
         uint32_t extended_sector = get_free_sector();
-        if (extended_sector == FAT_ERR_DISK_FULL)
+        if (extended_sector == FAT_NO_FREE_SPACE)
         {
             fprintf(stderr, "No more disk space to expand directory\n");
             return FAT_ERR_DISK_FULL;
@@ -385,8 +388,8 @@ int fat_createfile(const char *filename)
     }
 
     // File FCB init
-    strcpy(new->name, name);
-    strcpy(new->ext, ext);
+    strcpy((char *)new->name, name);
+    strcpy((char *)new->ext, ext);
     new->is_dir = 0;
     new->file_size = 0;
     new->first_sector = FAT_EOC;
@@ -448,7 +451,8 @@ int fat_writefile(const char *filename, const char *text, int append)
 
     if (this->first_sector == FAT_EOC){
         uint32_t new_sector = get_free_sector();
-        if (new_sector == FAT_ERR_DISK_FULL){
+        if (new_sector == FAT_NO_FREE_SPACE)
+        {
             fprintf(stderr, "Error: no more disk space to expand file\n");
             return FAT_ERR_DISK_FULL;
         }
@@ -513,7 +517,7 @@ int fat_writefile(const char *filename, const char *text, int append)
             printf("Writing %u bytes to sector %u (offset %u)...\n", writable, sector_start, offset_start);
             uint32_t new_sector = get_free_sector();
 
-            if (new_sector == FAT_ERR_DISK_FULL)
+            if (new_sector == FAT_NO_FREE_SPACE)
             {
                 fprintf(stderr, "No more disk space for file\n");
                 return FAT_ERR_DISK_FULL;
@@ -545,7 +549,7 @@ int fat_rm(const char *filename, int flag_recursive)
         return FAT_ERR_GENERIC;
     }
 
-    if ((strcmp(found->name, ".") == 0)||(strcmp(found->name, "..") == 0))
+    if ((strcmp((char *)found->name, ".") == 0) || ((strcmp((char *)found->name, "..") == 0)))
     {
         fprintf(stderr, "Error: tried to remove this folder or its parent, which is not allowed\n");
         return FAT_ERR_GENERIC;
@@ -561,7 +565,7 @@ int fat_rm(const char *filename, int flag_recursive)
             uint32_t current = found->first_sector;
             FAT_FCB *temp;
             while((temp = read_dir_next(current, &current_entry_index)) != NULL){
-                if ((strcmp(temp->name, ".") != 0) && (strcmp(temp->name, "..") != 0))
+                if ((strcmp((char *)temp->name, ".") != 0) && (strcmp((char *)temp->name, "..") != 0))
                 {
                     fprintf(stderr, "Error: tried to remove a folder that is not empty\n");
                     return FAT_ERR_GENERIC;
@@ -819,7 +823,7 @@ int rm_recursive(uint32_t folder_sector)
     FAT_FCB *entry;
     while((entry = read_dir_next(folder_sector, &fcb_index)) != NULL){
 
-        if ((strcmp(entry->name, ".") == 0) || (strcmp(entry->name, "..") == 0)) continue;
+        if ((strcmp((char *)entry->name, ".") == 0) || (strcmp((char *)entry->name, "..") == 0)) continue;
 
         if (entry->is_dir == 1) rm_recursive(entry->first_sector);
 
@@ -921,13 +925,13 @@ uint32_t fat_resolve_path(const char *path)
         if (found == NULL)
         {
             fprintf(stderr, "Folder not found\n");
-            return FAT_ERR_GENERIC;
+            return FAT_BADCLUSTER;
         }
 
         // Checking if it actually is a directory and not a file
         if (found->is_dir == 0)
         {
-            return FAT_ERR_GENERIC;
+            return FAT_BADCLUSTER;
         }
 
         // We go on to the next sector
@@ -1045,7 +1049,3 @@ int update_parent_size(uint32_t current_sector, int size)
 
     return FAT_SUCCESS;
 }
-
-
-
-// TODO use calculate disk free space (using sb metadata)!! 
