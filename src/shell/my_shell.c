@@ -151,10 +151,7 @@ int do_shell(const char* prompt_base) {
 
 int cmd_help(int argc, char **argv)
 {
-    // Ignore unused parameters to prevent compiler warnings
-    (void)argc;
-    (void)argv;
-
+    
     if (current_state == SHELL_STATE_UNMOUNTED) {
         printf("\n================================================================================\n");
         printf("             SHELLBY - STATE: UNMOUNTED\n");

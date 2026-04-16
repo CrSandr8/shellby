@@ -216,9 +216,9 @@ int fat_createdir(const char *name)
 
     FAT_FCB *found = find_in_dir(name, disk->cwd_sector);
 
-    if (found != NULL && found->is_dir == 1)
+    if (found != NULL)
     {
-        fprintf(stderr, "Directory already exists\n");
+        fprintf(stderr, "Directory (or file with this name) already exists\n");
         return FAT_ERR_GENERIC;
     }
 
@@ -354,9 +354,9 @@ int fat_createfile(const char *filename)
 {
     FAT_FCB *found = find_in_dir(filename, disk->cwd_sector);
 
-    if (found != NULL && found->is_dir == 0)
+    if (found != NULL)
     {
-        fprintf(stderr, "File already exists\n");
+        fprintf(stderr, "File (or directory with this name) already exists\n");
         return FAT_ERR_GENERIC;
     }
 
