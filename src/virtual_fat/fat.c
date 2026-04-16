@@ -520,7 +520,8 @@ int fat_writefile(const char *filename, const char *text, int append)
             if (new_sector == FAT_NO_FREE_SPACE)
             {
                 fprintf(stderr, "No more disk space for file\n");
-                return FAT_ERR_DISK_FULL;
+                size_delta -= to_write; //Or it allegedly goes in sefault after a big number of iterations
+                break;
             }
 
             chain_append(sector_start, new_sector);
@@ -780,7 +781,7 @@ int chain_cut(uint32_t first_sector, int size)
 uint32_t get_free_sector()
 {
     if (disk->sb->FSI_Free_Count == 0)
-        return FAT_ERR_DISK_FULL;
+        return FAT_NO_FREE_SPACE;
 
     uint32_t start = disk->sb->FSI_Nxt_Free;
 
@@ -811,7 +812,7 @@ uint32_t get_free_sector()
     }
 
     // DISK FULL
-    return FAT_ERR_DISK_FULL;
+    return FAT_NO_FREE_SPACE;
 }
 
 
