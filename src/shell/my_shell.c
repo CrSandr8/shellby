@@ -294,7 +294,10 @@ int cmd_write(int argc, char **argv)
         fprintf(stderr, "Usage: write <filename> \"text\"\n");
         return -1;
     }
-    return fat_writefile(argv[1], argv[2], 0);
+    
+    uint32_t data_size = strlen(argv[2]);
+
+    return fat_writefile(argv[1], (const void *)argv[2], data_size, 0);
 }
 
 int cmd_append(int argc, char **argv)
@@ -303,7 +306,9 @@ int cmd_append(int argc, char **argv)
         fprintf(stderr, "Usage: append <filename> \"text\"\n");
         return -1;
     }
-    return fat_writefile(argv[1], argv[2], 1);
+    uint32_t data_size = strlen(argv[2]);
+
+    return fat_writefile(argv[1], (const void *)argv[2], data_size, 1);
 }
 
 int cmd_rm(int argc, char **argv)

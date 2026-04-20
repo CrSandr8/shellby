@@ -24,8 +24,10 @@ int fat_readdir(uint32_t dir_sector);
 
 int fat_createfile(const char *filename);
 int fat_readfile(const char *filename);
-int fat_writefile(const char *filename, const char *text, int append);
+int fat_writefile(const char *filename, const void *data, uint32_t data_size, int append);
 int fat_rm(const char *filename, int flag_recursive);
+int fat_copy_to_host(const char *filename);
+int fat_copy_from_host(const char * host_path);
 
 //============================================================================//
 //============================= Backend Routines =============================//

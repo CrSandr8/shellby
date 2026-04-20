@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
 #include "fat.h"
 
 FAT_Disk *disk = NULL;
@@ -431,9 +432,9 @@ int fat_readfile(const char *filename)
 
 
 
-// Write the text we get in input as a string to the file filename. The append parameter is a flag. If set to 0 we are writing in the file from the start, deleting everything it contained before. If set to 1 we append to the end of the current content.
+// TODO rewrite this comment section
 // We allocate sectors to the file only when we start writing on it. Before that if a file is blank it lives in the filesystem only as an FCB in the parent directory.
-int fat_writefile(const char *filename, const char *text, int append)
+int fat_writefile(const char *filename, const void *data, uint32_t data_size, int append)
 {
     if (append > 1 || append < 0)
     {
@@ -449,72 +450,60 @@ int fat_writefile(const char *filename, const char *text, int append)
         return FAT_ERR_GENERIC;
     }
 
-    if (this->first_sector == FAT_EOC){
-        uint32_t new_sector = get_free_sector();
-        if (new_sector == FAT_NO_FREE_SPACE)
-        {
-            fprintf(stderr, "Error: no more disk space to expand file\n");
-            return FAT_ERR_DISK_FULL;
-        }
-        this->first_sector = new_sector;
-        disk->fat[new_sector] = FAT_EOC;
-    }
+    uint32_t to_write = data_size;
 
-    uint32_t new_text_len = strlen(text);
+    uint32_t written = 0;
+
     int size_delta;
 
-    uint32_t sector_start = this->first_sector; // The sector we start from
-    uint32_t offset_start = 0;                  // The offset we start from in sector_start
+    uint32_t current_sector = this->first_sector;
 
-    if (append == 0)
+    if (current_sector == FAT_EOC)
     {
-        size_delta = (int)new_text_len - (int)this->file_size;
+        uint32_t new = get_free_sector();
+        if (new == FAT_NO_FREE_SPACE)
+        {
+            fprintf(stderr, "Error: disk full \n");
+            return FAT_ERR_DISK_FULL;
+        }
+        this->first_sector = new;
+        current_sector = new;
+        disk->fat[new] = FAT_EOC;
+    }
 
-        // Cleanup the file
-        this->file_size = 0;
-        uint32_t this_first_sector_copy = disk->fat[this->first_sector];
-        disk->fat[this->first_sector] = FAT_EOC;
-        chain_rm(this_first_sector_copy);
+    uint32_t offset_start;
 
-        offset_start = 0;
+    if (append == 1)
+    {
+        while (get_next_sector(current_sector) != FAT_EOC) current_sector = get_next_sector(current_sector);
+        offset_start = this->file_size % SECTOR_SIZE;
+        size_delta = data_size;
     }
     else
     {
-        size_delta = (int)new_text_len;
-
-        // We are in append mode
-        while (get_next_sector(sector_start) != FAT_EOC)
-        {
-            sector_start = get_next_sector(sector_start);
-        }
-
-        offset_start = this->file_size % SECTOR_SIZE;
+        size_delta = data_size - this->file_size;
+        chain_rm(get_next_sector(current_sector));
+        this->file_size = 0;
+        offset_start = 0;
+        disk->fat[this->first_sector] = FAT_EOC;
     }
-
-    uint32_t to_write = strlen(text);
 
     while (to_write > 0)
     {
-        // This is how many bytes we can write in the sector we are in right now
-        uint32_t writable = to_write > (SECTOR_SIZE - offset_start) ? SECTOR_SIZE - offset_start : to_write;
+        uint32_t space_left = SECTOR_SIZE - offset_start;
+        uint32_t to_write_in_sector = to_write > space_left ? space_left : to_write;
 
-        // strncpy((char *)get_entries(this->first_sector), text, writable);
+        memcpy((char *)get_entries(current_sector) + offset_start, data, to_write_in_sector);
 
-        // This is the actual writing moment
-        memcpy((char *)get_entries(sector_start) + offset_start, text, writable);
+        data = (const char *)data + to_write_in_sector;
 
-        // Here we move the pointer forward
-        text += writable;
+        to_write -= to_write_in_sector;
 
-        // Update the remaining bytes to write
-        to_write -= writable;
-
-        // And the file size
-        this->file_size += writable;
+        this->file_size += to_write_in_sector;
 
         if (to_write > 0)
         {
-            printf("Writing %u bytes to sector %u (offset %u)...\n", writable, sector_start, offset_start);
+            printf("Writing %u bytes to sector %u (offset %u)...\n", to_write_in_sector, current_sector, offset_start);
             uint32_t new_sector = get_free_sector();
 
             if (new_sector == FAT_NO_FREE_SPACE)
@@ -524,8 +513,8 @@ int fat_writefile(const char *filename, const char *text, int append)
                 break;
             }
 
-            chain_append(sector_start, new_sector);
-            sector_start = new_sector;
+            chain_append(current_sector, new_sector);
+            current_sector = new_sector;
 
             // Reset the current offset in the sector
             offset_start = 0;
@@ -533,7 +522,9 @@ int fat_writefile(const char *filename, const char *text, int append)
     }
 
     update_parent_size(disk->cwd_sector, size_delta);
+
     return FAT_SUCCESS;
+
 }
 
 
@@ -587,6 +578,123 @@ int fat_rm(const char *filename, int flag_recursive)
         fprintf(stderr, "Error while removing the file's sector chain\n");
         return FAT_ERR_GENERIC;
     }
+
+    return FAT_SUCCESS;
+}
+
+
+
+
+int fat_copy_to_host(const char *filename)
+{
+    FAT_FCB *found = find_in_dir(filename, disk->cwd_sector);
+
+    if (found == NULL)
+    {
+        fprintf(stderr, "Error, file not found \n");
+        return FAT_ERR_GENERIC;
+    }
+
+    uint32_t current_sector = found->first_sector;
+
+    uint32_t to_write = found->file_size;
+
+    if (to_write == 0)
+    {
+        printf("Copying appearently blank file, verify if this is correct \n");
+    }
+
+    char location_path[256];
+    
+    snprintf(location_path, 256, "../../%s", filename);
+
+    int fd = open(location_path, O_CREAT | O_RDWR | O_TRUNC, 0666);
+
+    while (to_write > 0)
+    {
+        uint32_t to_write_in_sector = to_write > SECTOR_SIZE ? SECTOR_SIZE : to_write;
+
+        write(fd, (char *)get_entries(current_sector), to_write_in_sector);
+
+        to_write -= to_write_in_sector;
+
+        if (to_write == 0 || get_next_sector(current_sector) == FAT_EOC) break;
+
+        current_sector = get_next_sector(current_sector);
+    }
+
+    close(fd);
+
+    return FAT_SUCCESS;
+}
+
+
+
+
+int fat_copy_from_host(const char *path)
+{
+    int fd = open(path, O_RDONLY);
+
+    if (fd == -1)
+    {
+        fprintf(stderr, "Error while locating or opening file %s, please check the given path and file permissions \n", path);
+        return FAT_ERR_GENERIC;
+    }
+
+    char *path_copy = strdup(path);
+
+    char *filename = basename(path_copy);
+
+    struct stat st;
+
+    fstat(fd, &st);
+
+    uint32_t size = st.st_size;
+
+    if (size == 0)
+    {
+        printf("Copying appearently blank file, verify if this is correct \n");
+        close(fd);
+        if (fat_createfile(filename) == FAT_ERR_GENERIC)
+        {
+            fprintf(stderr, "Error during file creation \n");
+            close(fd);
+            return FAT_ERR_GENERIC;
+        }
+        return FAT_SUCCESS;
+    }
+
+    if (fat_createfile(filename) == FAT_ERR_GENERIC)
+    {
+        fprintf(stderr, "Error during file creation \n");
+        close(fd);
+        return FAT_ERR_GENERIC;
+    }
+
+    uint32_t buffer_size = size > SECTOR_SIZE ? SECTOR_SIZE : size;
+
+    char buffer[buffer_size];
+
+    uint32_t num_sectors = (size + SECTOR_SIZE - 1)/SECTOR_SIZE;
+
+    if (disk->sb->FSI_Free_Count < num_sectors)
+    {
+        fprintf(stderr, "Not enough disk space to allocate file \n");
+        close(fd);
+        return FAT_ERR_DISK_FULL;
+    }
+
+    for (uint32_t i = 0; i < num_sectors; i++){
+        uint32_t bytes_read = read(fd, buffer, buffer_size);
+        if (fat_writefile(filename, buffer, bytes_read, 1) < 0)
+        {
+            fprintf(stderr, "Error while appending to file data \n");
+            close(fd);
+            return FAT_ERR_GENERIC;
+        }
+    }    
+
+    close(fd);
 
     return FAT_SUCCESS;
 }
