@@ -29,6 +29,8 @@ int cmd_format(int argc, char **argv);
 int cmd_mount(int argc, char **argv);
 int cmd_unmount(int argc, char **argv);
 
+int cmd_import(int argc, char **argv);
+int cmd_export(int argc, char **argv);
 int cmd_mkdir(int argc, char **argv);
 int cmd_cd(int argc, char **argv);
 int cmd_touch(int argc, char **argv);

@@ -159,13 +159,13 @@ int fat_mount(const char *disk_path)
     disk->cwd_sector = 0;
     strcpy(disk->cwd_path, "/");
 
-    printf("Disk mapped at address: %p\n", disk->disk_base);
-    printf("FAT region starts at: %p\n", disk->fat);
-    printf("Data region starts at: %p (Sector 0)\n", disk->data);
+    //printf("Disk mapped at address: %p\n", disk->disk_base);
+    //printf("FAT region starts at: %p\n", disk->fat);
+    //printf("Data region starts at: %p (Sector 0)\n", disk->data);
 
     close(fd);
 
-    printf("Correctly mounted disk\n");
+    printf("Correctly mounted disk \n");
 
     return FAT_SUCCESS;
 }
@@ -509,7 +509,7 @@ int fat_writefile(const char *filename, const void *data, uint32_t data_size, in
             if (new_sector == FAT_NO_FREE_SPACE)
             {
                 fprintf(stderr, "No more disk space for file\n");
-                size_delta -= to_write; //Or it allegedly goes in sefault after a big number of iterations
+                size_delta -= to_write; //Or it allegedly goes in segfault after a big number of iterations
                 break;
             }
 
@@ -606,7 +606,7 @@ int fat_copy_to_host(const char *filename)
 
     char location_path[256];
     
-    snprintf(location_path, 256, "../../%s", filename);
+    snprintf(location_path, 256, "./%s", filename);
 
     int fd = open(location_path, O_CREAT | O_RDWR | O_TRUNC, 0666);
 
@@ -901,7 +901,7 @@ uint32_t get_free_sector()
     {
         if (disk->fat[i] == FAT_FREE)
         {
-            printf("[DEBUG] Allocated free sector: %u\n", i);
+            //printf("[DEBUG] Allocated free sector: %u\n", i);
             disk->sb->FSI_Nxt_Free = i + 1;
             disk->sb->FSI_Free_Count--;
             return i;

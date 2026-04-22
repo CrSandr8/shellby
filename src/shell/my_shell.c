@@ -13,6 +13,8 @@ cmd_t cmd_table[] = {
     {"format", cmd_format, SHELL_STATE_UNMOUNTED},
     {"mount", cmd_mount, SHELL_STATE_UNMOUNTED},
     
+    {"import", cmd_import, SHELL_STATE_MOUNTED},
+    {"export", cmd_export, SHELL_STATE_MOUNTED},
     {"mkdir", cmd_mkdir, SHELL_STATE_MOUNTED},
     {"cd", cmd_cd, SHELL_STATE_MOUNTED},
     {"touch", cmd_touch, SHELL_STATE_MOUNTED},
@@ -182,6 +184,8 @@ int cmd_help(int argc, char **argv)
         printf("  append <file> \"text\"    Append text to the end of a file\n");
         printf("  rm [-r] <name>          Remove a file or directory.\n");
         printf("                          (Use -r to remove non-empty folders)\n");
+        printf("  import <host_path>      Copy a file from the host PC to the virtual disk\n");
+        printf("  export <filename>       Copy a file from the virtual disk to the host PC\n");
         printf("  clear                   Clear the terminal screen\n");
         printf("  unmount                 Unmount the current disk and save changes\n");
         printf("  close                   Close the application (manual unmount recommended)\n");
@@ -245,6 +249,24 @@ int cmd_unmount(int argc, char **argv)
     if (res == FAT_SUCCESS) current_state = SHELL_STATE_UNMOUNTED;
 
     return res;
+}
+
+int cmd_import(int argc, char **argv)
+{
+    if (argc < 2) {
+        fprintf(stderr, "Usage: import <host_path>\n");
+        return -1;
+    }
+    return fat_copy_from_host(argv[1]);
+}
+
+int cmd_export(int argc, char **argv)
+{
+    if (argc < 2) {
+        fprintf(stderr, "Usage: export <filename>\n");
+        return -1;
+    }
+    return fat_copy_to_host(argv[1]);
 }
 
 int cmd_mkdir(int argc, char **argv)
