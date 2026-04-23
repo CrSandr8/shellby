@@ -1,5 +1,5 @@
-#ifndef _MY_SHELL_H
-#define _MY_SHELL_H
+#ifndef _SHELL_H
+#define _SHELL_H
 
 #define MAX_LINE    2048
 #define MAX_TOKENS  256

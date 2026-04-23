@@ -3,8 +3,8 @@ CC = gcc
 TARGET = shellby
 
 SRCS = src/main.c \
-       src/virtual_fat/fat.c \
-       src/shell/my_shell.c
+       src/fat/fat.c \
+       src/shell/shell.c
 
 OBJS = $(SRCS:.c=.o)
 

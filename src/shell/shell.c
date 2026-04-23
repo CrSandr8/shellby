@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <ctype.h>
-#include "my_shell.h"
+#include "shell.h"
 
-#include "../virtual_fat/fat.h" 
+#include "../fat/fat.h" 
 
 cmd_t cmd_table[] = {
 

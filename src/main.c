@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "virtual_fat/fat.h"
-#include "shell/my_shell.h"
+#include "fat/fat.h"
+#include "shell/shell.h"
 
 
 int main(int argc, char **argv) {
