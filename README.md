@@ -1,5 +1,3 @@
-Sure thing, bro! Here is the revised `README.md` in English with the license updated to Apache 2.0.
-
 ***
 
 # 🐚 Shellby 
