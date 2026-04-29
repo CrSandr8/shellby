@@ -20,10 +20,11 @@
 #define FAT_NO_FREE_SPACE 0xFFFFFFFF
 
 // Fundamental dimensional values
-#define SECTOR_SIZE 512 
+#define SECTOR_SIZE 512 // Could be 1024, 2048 and so on up to 64 kB
 #define ENTRIES_PER_SEC (SECTOR_SIZE / 32) // Each FCB is 32 bytes
-#define MIN_DISK_SIZE (1024)
-#define MAX_DISK_SIZE (1024 * 1024 * 1024) 
+#define MIN_DISK_SIZE (4096)
+#define MAX_DISK_SIZE (1024 * 1024 * 1024)
+#define SUPERBLOCK_PADDING (SECTOR_SIZE - 20)
 
 
 // NOTE: if the sector size is changed from the default value the only other value that has to be changed is the padding in the superblock which has to be SECTOR_SIZE - 20
@@ -39,7 +40,7 @@ typedef struct
     uint32_t RootSec;        // Starting sector of the root directory
     uint32_t FSI_Free_Count; // Number of free sectors remaining
     uint32_t FSI_Nxt_Free;   // Hint for the next free sector search
-    uint8_t padding[492];    // Pad to 512 bytes
+    uint8_t padding[SUPERBLOCK_PADDING];    // Pad to 512 bytes
 
 } __attribute__((packed)) FAT_Superblock;
 

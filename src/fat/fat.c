@@ -9,6 +9,15 @@
 #include <libgen.h>
 #include "fat.h"
 
+#ifdef DEBUG
+    // The macro also prints the file name, line number, and calling function
+    #define DEBUG_PRINT(fmt, args...) \
+        fprintf(stderr, "[DEBUG] %s:%d:%s(): " fmt, __FILE__, __LINE__, __func__, ##args)
+#else
+    // If DEBUG is not defined, the compiler will completely ignore this macro
+    #define DEBUG_PRINT(fmt, args...) do {} while (0)
+#endif
+
 FAT_Disk *disk = NULL;
 
 //============================================================================//
@@ -43,11 +52,15 @@ int fat_create_disk(const char *filename, int size)
         perror("Disk size is too big. Please choose a smaller size");
         return FAT_ERR_GENERIC;
     }
-
-    //These are info needed for metadata in the superblock but depend on the actual size given
-    int num_sectors = get_num_sectors(size);
-    int fat_size = get_fat_size(num_sectors);
-    int disk_size = get_total_disk_size(fat_size, size);
+ 
+    int available_space = size - sizeof(FAT_Superblock);
+    
+    int num_sectors = available_space / (SECTOR_SIZE + sizeof(uint32_t));
+    
+    int fat_size = num_sectors * sizeof(uint32_t);
+    int data_size = num_sectors * SECTOR_SIZE;
+    
+    int disk_size = sizeof(FAT_Superblock) + fat_size + data_size;
 
     if (ftruncate(fd, disk_size) == -1)
     {
@@ -159,9 +172,9 @@ int fat_mount(const char *disk_path)
     disk->cwd_sector = 0;
     strcpy(disk->cwd_path, "/");
 
-    //printf("Disk mapped at address: %p\n", disk->disk_base);
-    //printf("FAT region starts at: %p\n", disk->fat);
-    //printf("Data region starts at: %p (Sector 0)\n", disk->data);
+    DEBUG_PRINT("Disk base address: %p\n", disk->disk_base);
+    DEBUG_PRINT("FAT region starts at: %p\n", disk->fat);
+    DEBUG_PRINT("Data region (Sector 0) starts at: %p\n", disk->data);
 
     close(fd);
 
@@ -501,6 +514,8 @@ int fat_writefile(const char *filename, const void *data, uint32_t data_size, in
 
         this->file_size += to_write_in_sector;
 
+        DEBUG_PRINT("Writing %u bytes to sector %u (offset %u). Remaining: %u bytes\n", to_write_in_sector, current_sector, offset_start, to_write - to_write_in_sector);
+
         if (to_write > 0)
         {
             printf("Writing %u bytes to sector %u (offset %u)...\n", to_write_in_sector, current_sector, offset_start);
@@ -599,6 +614,8 @@ int fat_copy_to_host(const char *filename)
 
     uint32_t to_write = found->file_size;
 
+    DEBUG_PRINT("Export: Found file '%s', total size to export: %u bytes\n", filename, to_write);
+
     if (to_write == 0)
     {
         printf("Copying appearently blank file, verify if this is correct \n");
@@ -614,6 +631,8 @@ int fat_copy_to_host(const char *filename)
     {
         uint32_t to_write_in_sector = to_write > SECTOR_SIZE ? SECTOR_SIZE : to_write;
 
+        DEBUG_PRINT("Export: Writing %u bytes from virtual sector %u to host file\n", to_write_in_sector, current_sector);
+
         write(fd, (char *)get_entries(current_sector), to_write_in_sector);
 
         to_write -= to_write_in_sector;
@@ -622,6 +641,8 @@ int fat_copy_to_host(const char *filename)
 
         current_sector = get_next_sector(current_sector);
     }
+
+    DEBUG_PRINT("Export: Operation completed successfully\n");
 
     close(fd);
 
@@ -651,6 +672,8 @@ int fat_copy_from_host(const char *path)
 
     uint32_t size = st.st_size;
 
+    DEBUG_PRINT("Import: Host file '%s' opened. Size: %u bytes\n", filename, size);
+
     if (size == 0)
     {
         printf("Copying appearently blank file, verify if this is correct \n");
@@ -677,6 +700,8 @@ int fat_copy_from_host(const char *path)
 
     uint32_t num_sectors = (size + SECTOR_SIZE - 1)/SECTOR_SIZE;
 
+    DEBUG_PRINT("Import: File requires %u sectors. Disk currently has %u free sectors\n", num_sectors, disk->sb->FSI_Free_Count);
+
     if (disk->sb->FSI_Free_Count < num_sectors)
     {
         fprintf(stderr, "Not enough disk space to allocate file \n");
@@ -686,6 +711,9 @@ int fat_copy_from_host(const char *path)
 
     for (uint32_t i = 0; i < num_sectors; i++){
         uint32_t bytes_read = read(fd, buffer, buffer_size);
+
+        DEBUG_PRINT("Import: Read %u bytes from host file, appending to virtual file (chunk %u/%u)\n", bytes_read, i + 1, num_sectors);
+
         if (fat_writefile(filename, buffer, bytes_read, 1) < 0)
         {
             fprintf(stderr, "Error while appending to file data \n");
@@ -693,6 +721,8 @@ int fat_copy_from_host(const char *path)
             return FAT_ERR_GENERIC;
         }
     }    
+
+    DEBUG_PRINT("Import: Operation completed successfully\n");
 
     close(fd);
 
@@ -812,6 +842,7 @@ FAT_FCB *read_dir_next(uint32_t dir_sector, uint32_t *entry_index)
 // We append the sector at offset b to the end of the chain that contains the sector at offset a.
 int chain_append(uint32_t a, uint32_t b)
 {
+    DEBUG_PRINT("Chaining: sector %u -> sector %u\n", a, b);
     while (1)
     {
         uint32_t next = get_next_sector(a); // Lookup next sector
@@ -838,6 +869,8 @@ int chain_rm(uint32_t first_sector)
 
     if (current == FAT_FREE || current == FAT_EOC) // If sector is already labeled as free
         return FAT_SUCCESS;
+
+    DEBUG_PRINT("Starting chain removal from sector %u\n", first_sector);
 
     while (1)
     {
@@ -901,7 +934,7 @@ uint32_t get_free_sector()
     {
         if (disk->fat[i] == FAT_FREE)
         {
-            //printf("[DEBUG] Allocated free sector: %u\n", i);
+            DEBUG_PRINT("Allocated free sector: %u (Remaining sectors: %u)\n", i, disk->sb->FSI_Free_Count - 1);
             disk->sb->FSI_Nxt_Free = i + 1;
             disk->sb->FSI_Free_Count--;
             return i;
@@ -1027,8 +1060,7 @@ uint32_t fat_resolve_path(const char *path)
 
     while (token != NULL)
     {
-        //printf("[DEBUG] Resolving token: '%s' in sector %u...\n", token, current_sector);
-        //
+        DEBUG_PRINT("Resolving token: '%s' starting from sector %u\n", token, current_sector);        //
         FAT_FCB *found = find_in_dir(token, current_sector);
 
         if (found == NULL)

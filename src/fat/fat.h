@@ -44,12 +44,6 @@ int rm_recursive(uint32_t folder_sector);
 
 uint32_t get_free_sector(void);
 
-// Helper macros for sector and entry management
-#define get_total_disk_size(a, b) (a) + (b) + (sizeof(FAT_Superblock))
-#define get_num_sectors(a) (a) / SECTOR_SIZE
-#define get_fat_size(a) (a) * (sizeof(uint32_t))
-
-
 // This is a very important "function", since it is the one that takes a look at our FAT
 #define get_next_sector(a) (disk->fat[(a)])
 
