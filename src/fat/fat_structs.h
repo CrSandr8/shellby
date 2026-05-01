@@ -22,7 +22,7 @@
 // Fundamental dimensional values
 #define SECTOR_SIZE 512 // Could be 1024, 2048 and so on up to 64 kB
 #define ENTRIES_PER_SEC (SECTOR_SIZE / 32) // Each FCB is 32 bytes
-#define MIN_DISK_SIZE (4096)
+#define MIN_DISK_SIZE (1544)
 #define MAX_DISK_SIZE (1024 * 1024 * 1024)
 #define SUPERBLOCK_PADDING (SECTOR_SIZE - 20)
 

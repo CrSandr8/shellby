@@ -219,12 +219,14 @@ int cmd_format(int argc, char **argv)
         final_size = atoi(argv[2]);
     }
 
-    if (final_size > MAX_DISK_SIZE || final_size < MIN_DISK_SIZE){
-                fprintf(stderr, "Error: tried to create a disk file of inappropriate size\n");
-                return -1;
+    int res = fat_create_disk(final_name, final_size);
+
+    if (res != FAT_SUCCESS) {
+        printf("Error: tried to format a disk of inappropriate size.\n");
+        return;
     }
     
-    return fat_create_disk(final_name, final_size);
+    return res;
 
 }
 

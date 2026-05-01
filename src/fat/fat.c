@@ -37,19 +37,19 @@ int fat_create_disk(const char *filename, int size)
 
     if (fd == -1)
     {
-        perror("Error while creating file");
+        fprintf(stderr, "Error while creating file\n");
         return FAT_ERR_GENERIC;
     }
 
     if (size < MIN_DISK_SIZE)
     {
-        perror("Too small disk size. Please choose a bigger size");
+        fprintf(stderr, "Too small disk size. Please choose a bigger size\n");
         return FAT_ERR_GENERIC;
     }
 
     if (size > MAX_DISK_SIZE)
     {
-        perror("Disk size is too big. Please choose a smaller size");
+        fprintf(stderr, "Disk size is too big. Please choose a smaller size\n");
         return FAT_ERR_GENERIC;
     }
  
@@ -465,8 +465,6 @@ int fat_writefile(const char *filename, const void *data, uint32_t data_size, in
 
     uint32_t to_write = data_size;
 
-    uint32_t written = 0;
-
     int size_delta;
 
     uint32_t current_sector = this->first_sector;
@@ -491,6 +489,17 @@ int fat_writefile(const char *filename, const void *data, uint32_t data_size, in
         while (get_next_sector(current_sector) != FAT_EOC) current_sector = get_next_sector(current_sector);
         offset_start = this->file_size % SECTOR_SIZE;
         size_delta = data_size;
+        if (offset_start == 0 && this->file_size > 0)
+        {
+            uint32_t new_sector = get_free_sector();
+            if (new_sector == FAT_NO_FREE_SPACE)
+            {
+                fprintf(stderr, "Error: disk full, cannot append more data\n");
+                return FAT_ERR_DISK_FULL;
+            }
+            chain_append(current_sector, new_sector);
+            current_sector = new_sector;
+        }
     }
     else
     {
@@ -514,7 +523,7 @@ int fat_writefile(const char *filename, const void *data, uint32_t data_size, in
 
         this->file_size += to_write_in_sector;
 
-        DEBUG_PRINT("Writing %u bytes to sector %u (offset %u). Remaining: %u bytes\n", to_write_in_sector, current_sector, offset_start, to_write - to_write_in_sector);
+        DEBUG_PRINT("Writing %u bytes to sector %u (offset %u). Remaining: %u bytes\n", to_write_in_sector, current_sector, offset_start, to_write);
 
         if (to_write > 0)
         {
