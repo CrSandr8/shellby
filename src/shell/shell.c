@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include "shell.h"
+#include "linenoise.h"
 
 #include "../fat/fat.h" 
 
@@ -24,13 +25,27 @@ cmd_t cmd_table[] = {
     {"append", cmd_append, SHELL_STATE_MOUNTED},
     {"rm", cmd_rm, SHELL_STATE_MOUNTED},
     {"unmount", cmd_unmount, SHELL_STATE_MOUNTED},
-    {"clear", cmd_clear, SHELL_STATE_MOUNTED}};
+    {"clear", cmd_clear, SHELL_STATE_MOUNTED}
+
+};
 
 
     
 
 shell_state_t current_state = SHELL_STATE_UNMOUNTED;
 
+
+void completion(const char *buf, linenoiseCompletions *lc) {
+    const char *cmds[] = {
+        "help", "format", "mount", "unmount", "mkdir", "cd", "cat", "ls", "touch", "write", "append", "rm", "import", "export", NULL 
+    };
+    int i;
+    size_t len = strlen(buf);
+    for(i = 0; cmds[i] != NULL; i++)
+    {
+        if (strncmp(buf, cmds[i], len) == 0) linenoiseAddCompletion(lc, cmds[i]);
+    }
+}
 
 
 
@@ -58,18 +73,12 @@ int do_cmd(char *argv[MAX_TOKENS], int argc)
 
 
 
-void get_cmd_line(char* argv[MAX_TOKENS], int* argc) {
-    static char line[MAX_LINE];
-    if (fgets(line, MAX_LINE, stdin) == NULL) {
-        printf("\n");
-        fat_unmount();
-        exit(0);
-    }
+void parse_cmd_line(char *line, char* argv[MAX_TOKENS], int* argc) {
     *argc = 0;
     char *p = line;
     int in_quotes = 0;
 
-    while(*p != '\0' && *argc < (MAX_TOKENS - 1)){ // This could cause trouble if a command has exactly 256 tokens so we leave one
+    while(*p != '\0' && *argc < (MAX_TOKENS - 1)){
 
         while(*p == ' ' || *p == '\t' || *p == '\n') p++;
 
@@ -112,38 +121,53 @@ int do_shell(const char* prompt_base) {
     printf( "  #+#    #+# #+#    #+# #+#        #+#        #+#        #+#    #+#    #+#     \n");
     printf( "   ########  ###    ### ########## ########## ########## #########     ###     \n");      
     
-    printf("\n");
+    printf("\nWelcome to shellby! Type help to get a glance at the commands \n\n");
 
-    printf("Welcome to shellby! Type help to get a glance at the commands \n");
+    linenoiseSetCompletionCallback(completion);
 
-    printf("\n");
+    char prompt[256];
+
     for (;;) {
-
         if (disk->disk_base != NULL) {
-        // Disk is mounted: show shellby[disk_name]:/pathto/dir$ 
-        printf("%s[%s]:%s$ ", prompt_base, disk->disk_name, disk->cwd_path);
+            snprintf(prompt, sizeof(prompt), "%s[%s]:%s$ ", prompt_base, disk->disk_name, disk->cwd_path);
         } else {
-        // No disk mounted: show shellby:$ 
-        printf("%s$ ", prompt_base);
+            snprintf(prompt, sizeof(prompt), "%s$ ", prompt_base);
         }
         
+        char *line = linenoise(prompt);
+        
+        if (line == NULL) {
+            printf("\n");
+            if (current_state == SHELL_STATE_MOUNTED) {
+                fat_unmount();
+            }
+            break; 
+        }
+
+        if (line[0] != '\0') {
+            linenoiseHistoryAdd(line);
+        }
+
         char* argv[MAX_TOKENS];
         int argc = 0;
-        get_cmd_line(argv, &argc);
+        
+        parse_cmd_line(line, argv, &argc);
+
         if (argc > 0) {
-            if(strcmp(argv[0], "close") == 0)
-            {
-                if (current_state == SHELL_STATE_MOUNTED) 
-                {
+            if(strcmp(argv[0], "close") == 0) {
+                if (current_state == SHELL_STATE_MOUNTED) {
                     fprintf(stderr, "Error: please unmount before closing the shell\n");
+                    free(line);
                     continue;
                 }
-
+                free(line);
                 break;
-                    
             } 
+            
             do_cmd(argv, argc);
         }
+        
+        free(line); 
     }
     return 0;
 }
@@ -196,6 +220,10 @@ int cmd_help(int argc, char **argv)
     return 0;
 }
 
+
+
+
+
 int cmd_format(int argc, char **argv)
 {
     char *final_name = "filesystem.bin";
@@ -223,7 +251,7 @@ int cmd_format(int argc, char **argv)
 
     if (res != FAT_SUCCESS) {
         printf("Error: tried to format a disk of inappropriate size.\n");
-        return;
+        return FAT_ERR_GENERIC;
     }
     
     return res;

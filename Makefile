@@ -6,7 +6,8 @@ CFLAGS = -Wall -g -DDEBUG
 
 SRCS = src/main.c \
        src/fat/fat.c \
-       src/shell/shell.c
+       src/shell/shell.c\
+	   src/shell/linenoise.c
 
 OBJS = $(SRCS:.c=.o)
 
